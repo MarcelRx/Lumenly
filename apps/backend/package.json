@@ -1,0 +1,13 @@
+{
+  "name": "@lumenly/backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lumenly FastAPI backend service",
+  "scripts": {
+    "dev": "echo 'Backend dev — configure uvicorn when ready'",
+    "build": "echo 'Backend build — configure when ready'",
+    "lint": "echo 'Backend lint — configure Ruff when ready'",
+    "test": "echo 'Backend test — configure pytest when ready'",
+    "clean": "find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true"
+  }
+}

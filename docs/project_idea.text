@@ -1,0 +1,452 @@
+Lumenly — AI Life Operating System (Final Product Blueprint)
+Vision
+Lumenly is a personal AI operating system that helps people continuously improve every area of life through one unified AI companion.
+Instead of having:
+* One app for meditation
+* One app for habits
+* One app for fitness
+* One app for productivity
+* One app for learning
+* One app for journaling
+Users have:
+One AI that understands their entire life.
+
+Core Mission
+Help users improve:
+* Mental Health
+* Emotional Intelligence
+* Productivity
+* Learning
+* Habits
+* Physical Fitness
+* Relationships
+* Career Growth
+* Financial Discipline
+* Purpose & Life Goals
+through:
+* AI coaching
+* Long-term memory
+* Personalized insights
+* Knowledge integration
+* Predictive recommendations
+
+Market Position
+Lumenly is not:
+* A chatbot
+* A meditation app
+* A habit tracker
+Lumenly is:
+The AI Operating System for Human Growth
+
+Product Philosophy
+Most AI apps answer questions.
+Lumenly answers:
+Why are you struggling?
+What should you do next?
+What action will create the biggest improvement?
+What patterns are holding you back?
+
+Core Product Architecture
+Layer 1 — User Data Layer
+Collects and organizes:
+Manual Inputs
+* Journals
+* Mood check-ins
+* Goals
+* Habits
+* Reflections
+* Tasks
+Connected Data
+Future integrations:
+* Apple Health
+* Google Fit
+* Fitbit
+* Garmin
+* Oura
+* Calendar
+* Notion
+* Todoist
+Uploaded Knowledge
+* Books
+* PDFs
+* Research papers
+* Study material
+* Notes
+
+Layer 2 — Memory System
+The most important system.
+Short-Term Memory
+Tracks:
+* Current conversations
+* Daily activity
+* Current goals
+Long-Term Memory
+Stores:
+* Personal preferences
+* Behavior patterns
+* Learning history
+* Emotional trends
+* Success patterns
+* Failure patterns
+Example:
+Lumenly remembers:
+* User studies best at night
+* Motivation drops after poor sleep
+* Walking improves mood
+* Deep work increases confidence
+
+Layer 3 — Knowledge Brain
+The feature that differentiates Lumenly.
+User Uploads
+Examples:
+* Atomic Habits
+* Deep Work
+* Mindset
+* The Psychology of Money
+Processing Pipeline
+Upload PDF
+↓
+Chunking
+↓
+Embeddings
+↓
+Vector Database
+↓
+Knowledge Graph
+↓
+Coaching Engine
+
+Result
+Instead of generic advice:
+"Try being more productive."
+Lumenly says:
+"Based on Deep Work, your focus sessions should be scheduled between 8–10 PM. Based on your previous results, this increases your task completion rate by 31%."
+
+Layer 4 — Life Intelligence Engine
+The AI brain.
+Combines:
+* Emotions
+* Habits
+* Goals
+* Sleep
+* Learning
+* Productivity
+* Fitness
+* Relationships
+to generate personalized recommendations.
+
+AI Agents
+
+Agent 1 — Life Strategist
+Master coordinator.
+Responsibilities:
+* Goal planning
+* Prioritization
+* Weekly reviews
+* Life direction
+Example:
+"What should I focus on this week?"
+
+Agent 2 — Mental Wellness Coach
+Inspired by:
+* CBT
+* Positive Psychology
+* Reflection techniques
+Responsibilities:
+* Emotional awareness
+* Stress management
+* Reflection exercises
+Not a therapist.
+Not a diagnostic system.
+
+Agent 3 — Habit Coach
+Responsibilities:
+* Habit creation
+* Streaks
+* Behavioral change
+Frameworks:
+* Tiny Habits
+* Habit Loop
+* Identity-based habits
+
+Agent 4 — Learning Coach
+Responsibilities:
+* Summaries
+* Quizzes
+* Study plans
+* Recall exercises
+Uses:
+* User PDFs
+* User books
+* Learning history
+
+Agent 5 — Fitness Coach
+Responsibilities:
+* Workout plans
+* Recovery plans
+* Habit formation
+Inputs:
+* Fitness goals
+* Sleep
+* Exercise history
+
+Agent 6 — Career Coach
+Responsibilities:
+* Skill development
+* Career planning
+* Interview preparation
+* Productivity optimization
+
+Agent 7 — Financial Coach
+Responsibilities:
+* Spending awareness
+* Saving goals
+* Financial habits
+Not investment advice.
+
+Agent 8 — Relationship Coach
+Responsibilities:
+* Communication
+* Emotional intelligence
+* Relationship reflection
+
+AI Wellness Score
+A proprietary metric.
+Range:
+0–100
+Based on:
+Area	Weight
+Sleep	20%
+Mood	20%
+Productivity	15%
+Habits	15%
+Fitness	10%
+Learning	10%
+Relationships	10%
+Example:
+Current Wellness Score:
+82
+Main improvement opportunity:
+Sleep consistency
+
+Predictive Intelligence
+Future flagship feature.
+Lumenly identifies:
+Burnout Risk
+Motivation Decline
+Habit Failure Risk
+Stress Escalation
+Goal Abandonment Risk
+before they happen.
+Example:
+"Your burnout risk has increased 24% over the past week due to decreased sleep and increased workload."
+
+Voice Companion
+Powered by:
+* Groq
+* ElevenLabs
+Capabilities:
+* Natural conversations
+* Real-time coaching
+* Voice journaling
+* Emotional tone detection
+Future:
+* Personalized voice personas
+
+Challenges System
+Examples:
+7-Day Focus Sprint
+30-Day Habit Builder
+Morning Routine Challenge
+Deep Work Challenge
+Confidence Challenge
+Generated dynamically by AI.
+
+Daily Flow
+Morning
+* Mood check-in
+* Goal review
+* Daily focus recommendation
+Afternoon
+* Productivity monitoring
+* Habit reminders
+Evening
+* Reflection
+* Journal
+* Wellness analysis
+
+Mobile Application
+Home
+Shows:
+* Wellness score
+* Today's priorities
+* Mood
+* Insights
+
+AI Companion
+Chat + Voice
+
+Insights
+Personal analytics
+
+Knowledge Brain
+Uploaded content
+
+Goals
+Life planning
+
+Habits
+Tracking system
+
+Learning
+Study plans
+
+Fitness
+Health tracking
+
+Relationships
+Reflection system
+
+Profile
+Settings and preferences
+
+Technology Stack
+Frontend
+* React Native
+* TypeScript
+* Expo
+* Zustand
+* React Query
+
+Backend
+* FastAPI
+* Python
+* MangoDB Alts SQL
+* Redis
+
+AI Infrastructure
+Groq
+Primary inference engine
+Gemini
+Long-context reasoning
+ElevenLabs
+Voice generation
+Embeddings
+OpenAI-compatible embedding model or open-source embedding model
+Vector Database
+* Qdrant (recommended) or
+* Weaviate
+
+Database Architecture
+Core entities:
+
+
+Users
+
+Profiles
+
+Conversations
+
+Messages
+
+Goals
+
+Habits
+
+MoodEntries
+
+JournalEntries
+
+WellnessScores
+
+KnowledgeDocuments
+
+KnowledgeChunks
+
+Embeddings
+
+Insights
+
+Challenges
+
+Subscriptions
+  
+Monetization
+Free
+* Daily check-ins
+* Mood tracking
+* Basic AI coach
+* 7-day history
+
+Plus ($9.99)
+* Unlimited chat
+* Voice coaching
+* Habit tracking
+* AI journaling
+
+Pro ($24.99)
+* Unlimited Knowledge Brain
+* Learning Coach
+* Fitness Coach
+* Career Coach
+* Advanced insights
+
+Elite ($49.99)
+* Multi-agent orchestration
+* Long-term memory
+* Family accounts
+* Burnout prediction
+* Executive coaching
+
+Enterprise
+For:
+* Schools
+* Universities
+* Corporations
+* Wellness programs
+
+Development Roadmap
+Phase 1 (MVP)
+8–12 weeks
+Build:
+* Authentication
+* Chat
+* Voice
+* Memory
+* Knowledge Brain
+* Wellness dashboard
+Goal:
+First paying users.
+
+Phase 2
+3–6 months
+Build:
+* Habits
+* Goals
+* Journaling
+* Insights
+Goal:
+Product-market fit.
+
+Phase 3
+6–12 months
+Build:
+* Fitness
+* Learning
+* Career
+* Relationships
+Goal:
+Full AI Life Companion.
+
+Phase 4
+12–24 months
+Build:
+* Predictive intelligence
+* Family accounts
+* Team coaching
+* Enterprise platform
+Goal:
+Become the leading AI Life Operating System.
+
+The One-Sentence Pitch
+Lumenly is an AI Life Operating System that combines long-term memory, personal knowledge, behavioral analytics, and specialized coaching agents to help people continuously improve every major area of their lives through one unified AI companion.

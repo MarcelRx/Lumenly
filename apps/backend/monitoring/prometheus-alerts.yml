@@ -1,0 +1,48 @@
+# Prometheus Alerting Rules for Lumenly Backend
+# Add this to your Prometheus alerting rules
+# ============================================
+
+groups:
+  - name: lumenly-backend-alerts
+    rules:
+      # High Latency Alerts
+      - alert: HighRAGResponseLatency
+        expr: histogram_quantile(0.95, rate(rag_response_latency_seconds_bucket[5m])) > 5.0
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High RAG response latency detected"
+          description: "95th percentile RAG response latency above 5 seconds for more than 2 minutes"
+
+      - alert: GeminiAPIHighLatency
+        expr: histogram_quantile(0.95, rate(gemini_api_latency_seconds_bucket[5m])) > 3.0
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Gemini API response time elevated"
+          description: "Gemini API calls taking longer than 3 seconds"
+
+      # Error Rate Alerts
+      - alert: HighGeminiErrorRate
+        expr: rate(gemini_requests_failure_total[5m]) / rate(gemini_requests_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Gemini API error rate elevated"
+          description: "More than 10% of Gemini requests are failing"
+
+      - alert: RateLimitExceeded
+        expr: rate(rag_response_latency_seconds_count[1m]) > 15
+        for: 30s
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Request rate approaching limit"
+          description: "Request rate exceeding 15 requests per second, may hit rate limits soon"

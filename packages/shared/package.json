@@ -1,0 +1,15 @@
+{
+  "name": "@lumenly/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Language-agnostic contracts — OpenAPI spec, JSON schemas",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "echo 'Shared build — configure when TypeScript contracts are added'",
+    "dev": "echo 'Shared package has no dev server'",
+    "lint": "echo 'Shared lint — configure when ready'",
+    "test": "echo 'Shared test — configure when ready'",
+    "clean": "rm -rf dist"
+  }
+}

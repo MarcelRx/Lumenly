@@ -1,0 +1,17 @@
+[project]
+name = "lumenly-backend"
+version = "0.0.0"
+description = "Lumenly FastAPI backend service"
+requires-python = ">=3.11"
+readme = "README.md"
+dependencies = [
+    "prometheus-client>=0.17.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

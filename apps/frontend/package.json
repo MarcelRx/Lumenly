@@ -1,0 +1,14 @@
+{
+  "name": "@lumenly/frontend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lumenly React Native / Expo mobile application",
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "build": "echo 'Frontend build — configure Expo EAS when ready'",
+    "lint": "echo 'Frontend lint — configure ESLint when ready'",
+    "test": "echo 'Frontend test — configure Jest when ready'",
+    "clean": "rm -rf .expo dist build node_modules/.cache"
+  }
+}

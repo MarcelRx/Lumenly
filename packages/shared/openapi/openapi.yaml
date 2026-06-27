@@ -1,0 +1,11 @@
+openapi: 3.1.0
+info:
+  title: Lumenly API
+  version: 0.0.1
+  description: |
+    Lumenly wellness coaching platform API.
+    Full specification — see docs/api_contracts.md
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+paths: {}
