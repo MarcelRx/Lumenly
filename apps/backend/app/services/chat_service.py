@@ -8,10 +8,13 @@ from typing import List, Optional
 import httpx
 from fastapi import HTTPException
 from fastembed import TextEmbedding
+from prometheus_client import Counter, Histogram
 from qdrant_client.models import FieldCondition, Filter, MatchValue
-from prometheus_client import Histogram, Counter
+
+from app.ai.memory_engine import LongTermMemory, MemoryManager, ShortTermMemory
 from app.core.config import settings
 from app.core.qdrant import get_qdrant_client
+from app.core.redis import get_redis_client
 from app.schemas.chat import ChatResponse
 
 logger = logging.getLogger(__name__)
@@ -76,6 +79,7 @@ def _can_make_request(user_id: str) -> bool:
     return False
 
 _embedding_model: Optional[TextEmbedding] = None
+_memory_manager: Optional[MemoryManager] = None
 
 def get_embedding_model() -> TextEmbedding:
     global _embedding_model
@@ -84,6 +88,19 @@ def get_embedding_model() -> TextEmbedding:
         _embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
         logger.info("Fastembed embedding model initialized")
     return _embedding_model
+
+def get_memory_manager() -> MemoryManager:
+    global _memory_manager
+    if _memory_manager is None:
+        redis_client = get_redis_client()
+        qdrant_client = get_qdrant_client()
+
+        short_term = ShortTermMemory(redis_client)
+        long_term = LongTermMemory(qdrant_client)
+
+        _memory_manager = MemoryManager(short_term, long_term)
+        logger.info("MemoryManager initialized")
+    return _memory_manager
 
 async def retrieve_context(
     query: str,
@@ -258,14 +275,45 @@ async def generate_rag_response(
     start_time = asyncio.get_event_loop().time()
 
     try:
-        context = await retrieve_context(query, user_id, collection_name)
-        answer = await call_gemini_api(query, context)
+        # Get memory manager and build context
+        memory_manager = get_memory_manager()
+
+        # Generate query vector for long-term memory retrieval
+        embedding_model = get_embedding_model()
+        query_vector = list(embedding_model.embed([query]))[0]
+
+        # Build context with short-term history and long-term memories
+        context_data = await memory_manager.build_context(
+            user_id=user_id,
+            current_query=query,
+            query_vector=query_vector
+        )
+
+        # Retrieve additional context from Qdrant (existing RAG flow)
+        rag_context = await retrieve_context(query, user_id, collection_name)
+
+        # Combine system prompt with RAG context
+        system_prompt = context_data["system_prompt"]
+        chat_history = context_data["chat_history"]
+
+        # Build enhanced context with system prompt, chat history and RAG context
+        enhanced_context = [system_prompt]
+        if chat_history:
+            history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history[-5:]])
+            enhanced_context.append(f"Recent conversation:\n{history_text}")
+        enhanced_context.extend(rag_context)
+
+        # Call Gemini with enhanced context
+        answer = await call_gemini_api(query, enhanced_context)
+
+        # Save conversation turn to short-term memory
+        await memory_manager.save_turn(user_id, query, answer)
 
         # FIXED: Prometheus labels syntax
         total_latency = asyncio.get_event_loop().time() - start_time
         RAG_RESPONSE_LATENCY.labels(user_id=user_id).observe(total_latency)
 
-        return ChatResponse(answer=answer, context=context)
+        return ChatResponse(answer=answer, context=enhanced_context)
 
     except Exception as e:
         logger.error("Error generating RAG response: %s", e)
