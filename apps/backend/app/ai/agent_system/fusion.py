@@ -126,26 +126,32 @@ class FusionEngine:
         """
         # If no LLM client is configured, return a mock response
         if self.llm_client is None:
+            logger.warning("LLM client not configured, using mock response")
             return self._mock_response(system_prompt, user_query)
 
-        # TODO: Implement actual LLM call based on client type (Groq/Gemini)
-        # This is a placeholder for the actual implementation
         try:
-            # Example implementation (adjust based on actual client API):
-            # messages = [
-            #     {"role": "system", "content": system_prompt},
-            #     *chat_history,
-            #     {"role": "user", "content": user_query}
-            # ]
-            # response = await self.llm_client.chat.completions.create(
-            #     messages=messages,
-            #     model="llama-3.3-70b-versatile"  # or appropriate model
-            # )
-            # return response.choices[0].message.content
+            # 1. Start with the system prompt (Agent Persona + Memory Context)
+            messages = [{"role": "system", "content": system_prompt}]
 
-            # For now, return mock response
-            logger.warning("LLM client configured but not fully implemented, using mock response")
-            return self._mock_response(system_prompt, user_query)
+            # 2. Append the conversation history
+            for msg in chat_history:
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")
+                })
+
+            # 3. Add the latest user query
+            messages.append({"role": "user", "content": user_query})
+
+            # 4. Generate the response using Groq/OpenAI compatible client
+            response = await self.llm_client.chat.completions.create(
+                messages=messages,
+                model="llama-3.3-70b-versatile",
+                temperature=0.7,
+                max_tokens=1024
+            )
+
+            return response.choices[0].message.content
 
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
