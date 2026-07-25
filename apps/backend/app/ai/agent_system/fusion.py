@@ -62,7 +62,7 @@ class FusionEngine:
             # MemoryManager doesn't return memories count, so infer from context
             # If query_vector was provided and system_prompt contains memory info, assume memories were retrieved
             system_prompt = context.get("system_prompt", "")
-            memories_retrieved = 1 if query_vector and "memories" in system_prompt.lower() else 0
+            memories_retrieved = 1 if query_vector is not None and len(query_vector) > 0 and "memories" in system_prompt.lower() else 0
 
             # Step 2: Route query to appropriate agent
             selected_agent = self.router.route_query(query, chat_history)

@@ -3,15 +3,12 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=2000, description="User's query/question")
-    collection_name: str = Field(
-        default="documents",
-        min_length=1,
-        max_length=200,
-        description="Qdrant collection to retrieve context from",
-    )
+    user_id: str = Field(..., description="User identifier")
+    message: str = Field(..., min_length=1, max_length=2000, description="User's message")
 
 
 class ChatResponse(BaseModel):
-    answer: str = Field(..., description="AI-generated response")
-    context: list[str] = Field(default_factory=list, description="Retrieved context chunks")
+    response: str = Field(..., description="AI-generated response")
+    agent_used: str = Field(..., description="The agent/coach that handled the query")
+    memories_retrieved: int = Field(..., description="Number of memories retrieved from long-term storage")
+    knowledge_snippets_used: int = Field(..., description="Number of knowledge snippets used")

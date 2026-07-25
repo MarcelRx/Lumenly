@@ -7,14 +7,16 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.endpoints.metrics import router as metrics_router
+from app.api.chat import router as fusion_chat_router
 from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.chat import router as chat_router
+from app.api.endpoints.metrics import router as metrics_router
 from app.api.endpoints.users import router as users_router
 from app.api.endpoints.vectors import router as vectors_router
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.qdrant import close_qdrant, init_qdrant
+from app.core.redis import close_redis, init_redis
 
 
 @asynccontextmanager
@@ -22,8 +24,10 @@ async def lifespan(app: FastAPI):
     # عملیات زمان راه‌اندازی (Startup)
     await init_db()
     await init_qdrant()
+    await init_redis()
     yield
     await close_qdrant()
+    await close_redis()
     # عملیات زمان خاموش شدن (Shutdown) - در صورت نیاز برای بستن کانکشن‌پول‌ها
 
 app = FastAPI(
@@ -81,6 +85,7 @@ app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(vectors_router, prefix="/api/v1/vectors", tags=["vectors"])
 app.include_router(chat_router, prefix="/api/v1/chat", tags=["chat"])
+app.include_router(fusion_chat_router)
 app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
 
 @app.get("/health", tags=["Health"])
