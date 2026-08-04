@@ -2,10 +2,11 @@
 import asyncio
 import logging
 import uuid
-from typing import Annotated
+from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastembed import TextEmbedding
+from pydantic import BaseModel, Field
 from qdrant_client.models import (
     Distance,
     FieldCondition,
@@ -31,9 +32,34 @@ router = APIRouter()
 
 VECTOR_SIZE = 384
 
+# Define the standardized collection name for Dashboard management
+COLLECTION_NAME = "knowledge_base"
+
 # Initialize the embedding model (generates 384-dimensional vectors)
 embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
+
+# -------------------------------------------------------------
+# STEP 3: DASHBOARD SCHEMAS
+# -------------------------------------------------------------
+
+class KnowledgeBaseDocument(BaseModel):
+    """Represents a single unique document found in the knowledge base."""
+    # We use a combined key "userid::title" for unique ID for now
+    id: str = Field(..., description="Unique ID for this document (UserID::Title).")
+    title: str = Field(..., description="The title of the document.")
+    chunk_count: int = Field(..., description="Number of vectors/chunks belonging to this document.")
+
+
+class DocumentListResponse(BaseModel):
+    """Response containing the aggregated list of unique documents."""
+    status: str = Field("success")
+    documents: List[KnowledgeBaseDocument] = Field(default_factory=list)
+
+
+# -------------------------------------------------------------
+# INTERNAL HELPERS
+# -------------------------------------------------------------
 
 async def generate_embedding(text: str) -> list[float]:
     def _embed() -> list[float]:
@@ -50,6 +76,204 @@ async def ensure_collection_exists(collection_name: str) -> None:
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
 
+# -------------------------------------------------------------
+# STEP 3, TASK B: DASHBOARD GET API ENDPOINT
+# -------------------------------------------------------------
+
+@router.get(
+    "/documents",
+    response_model=DocumentListResponse,
+    summary="List unique document titles and stats in the knowledge base",
+    tags=["Dashboard"]
+)
+async def list_knowledge_base_documents(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> DocumentListResponse:
+    """
+    Retrieves aggregated document info from Qdrant filtered by user_id.
+
+    Requires authentication via JWT token.
+    Uses 'knowledge_base' collection.
+    Scans point payloads to group by document_title and count chunks.
+    """
+    try:
+        client = get_qdrant_client()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vector database is currently unavailable",
+        ) from exc
+
+    try:
+        if not await client.collection_exists(COLLECTION_NAME):
+            return DocumentListResponse(documents=[])
+
+        user_id_str = str(current_user.id)
+
+        # Retrieve all payloads belonging to the current user
+        points, _ = await client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="user_id",
+                        match=MatchValue(value=user_id_str),
+                    )
+                ]
+            ),
+            with_payload=True,
+            with_vectors=False,
+            limit=5000,
+        )
+
+        # Group by document title
+        unique_docs_map: dict[str, dict] = {}
+
+        for point in points:
+            payload = point.payload or {}
+
+            doc_title = payload.get("document_title")
+            payload_user_id = payload.get("user_id")
+
+            if not doc_title or payload_user_id != user_id_str:
+                continue
+
+            doc_key = f"{user_id_str}::{doc_title}"
+
+            if doc_key not in unique_docs_map:
+                unique_docs_map[doc_key] = {
+                    "id": doc_key,
+                    "title": doc_title,
+                    "chunk_count": 0,
+                }
+
+            unique_docs_map[doc_key]["chunk_count"] += 1
+
+        documents = [
+            KnowledgeBaseDocument(**doc)
+            for doc in unique_docs_map.values()
+        ]
+
+        logger.info(
+            "Retrieved %d documents for user %s",
+            len(documents),
+            user_id_str,
+        )
+
+        return DocumentListResponse(
+            status="success",
+            documents=documents,
+        )
+
+    except Exception as exc:
+        logger.error(f"Failed to list knowledge base documents: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve knowledge base list: {str(exc)}",
+        ) from exc
+
+
+# -------------------------------------------------------------
+# STEP 3, TASK D: Backend Delete service (Integrated)
+# -------------------------------------------------------------
+
+# We use the unique dashboard ID (UserID::Title) in the URL path
+@router.delete(
+    "/documents/{doc_key}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete all vectors chunks belonging to a single unique document title.",
+    tags=["Dashboard"]
+)
+async def delete_knowledge_base_document(
+    doc_key: str, # Combined key defined in GET logic above (UserId::Title)
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """
+    Deletes every vector chunk associated with a document title, filtered by the current user.
+    Uses UserId::Title as unique identifier for orchestration.
+
+    Requires authentication via JWT token.
+    Uses UserId comparison on key for authorization.
+    """
+    try:
+        client = get_qdrant_client()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vector database is currently unavailable",
+        ) from exc
+
+    try:
+        if not await client.collection_exists(COLLECTION_NAME):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base is empty.")
+
+        # 1. Authorize the user (Key parsing logic)
+        # We split the key f"{userid}::{title}" safely
+        current_user_id_str = str(current_user.id)
+
+        # Split at first occurrence of '::'
+        key_parts = doc_key.split("::", 1)
+
+        if len(key_parts) != 2:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Document Key provided.")
+
+        payload_user_id = key_parts[0]
+        payload_doc_title = key_parts[1]
+
+        # Authorization check: UserId comparison must match
+        if payload_user_id != current_user_id_str:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to delete this document."
+            )
+
+        logger.info(f"Authorized deletion request: Document '{payload_doc_title}' for user {current_user_id_str}")
+
+        # 2. Perform the destruction filter in Qdrant (Destroy point by filtering)
+        points_filter = Filter(
+            must=[
+                # User_id must match...
+                FieldCondition(
+                    key="user_id",
+                    match=MatchValue(value=current_user_id_str),
+                ),
+                # ...AND document_title must match the specific title
+                FieldCondition(
+                    key="document_title",
+                    match=MatchValue(value=payload_doc_title),
+                )
+            ]
+        )
+
+        logger.debug(f"Executing Qdrant deletion filter on {COLLECTION_NAME} for {payload_doc_title}")
+
+        # Call Qdrant delete with filter (magic)
+        await client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=points_filter,
+        )
+
+        logger.info(f"SUCCESS: Deleted document '{payload_doc_title}' vector chunks from {COLLECTION_NAME}.")
+
+        return {
+            "status": "success",
+            "message": f"Successfully deleted vectors for document '{payload_doc_title}'."
+        }
+
+    except HTTPException as hexc:
+        # Re-raise explicit HTTP exceptions
+        raise hexc
+    except Exception as exc:
+        logger.error(f"Deletion service failure: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Deletes from vector database failed: {str(exc)}",
+        ) from exc
+
+
+# -------------------------------------------------------------
+# EXISTING AGENT ROUTING / INSERT ENDPOINTS
+# -------------------------------------------------------------
 
 @router.post(
     "/insert",
