@@ -1,3 +1,4 @@
+# apps/backend/app/ai/memory_engine/long_term.py
 import logging
 import uuid
 from qdrant_client import AsyncQdrantClient
@@ -13,7 +14,8 @@ from qdrant_client.models import (
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "user_long_term_memory"
-DEFAULT_VECTOR_SIZE = 768  # Default for Gemini; can be 1536 for OpenAI
+# Standard dimension for BAAI/bge-small-en-v1.5
+DEFAULT_VECTOR_SIZE = 384
 
 
 class LongTermMemory:
@@ -23,6 +25,7 @@ class LongTermMemory:
         self.qdrant = qdrant_client
         self.vector_size = vector_size
         self.collection_name = COLLECTION_NAME
+        logger.info(f"Initialized LongTermMemory with vector size: {self.vector_size}")
 
     async def _ensure_collection_exists(self) -> None:
         """Ensures the collection exists, creating it if necessary."""
@@ -39,9 +42,26 @@ class LongTermMemory:
                         distance=Distance.COSINE
                     )
                 )
-                logger.info(f"Collection {self.collection_name} created successfully")
+                logger.info(f"Collection {self.collection_name} created successfully with dimension {self.vector_size}")
+            else:
+                # Optionally check existing collection info to verify dimensions match
+                # This helps prevent silent mismatches if the file is changed but collection persists
+                collection_info = await self.qdrant.get_collection(collection_name=self.collection_name)
+                # The config path can vary by qdrant version, this is basic check
+                try:
+                    current_dim = collection_info.config.params.vectors.size
+                    if current_dim != self.vector_size:
+                        logger.error(
+                            f"DIMENSION MISMATCH DETECTED for {self.collection_name}! "
+                            f"Code expects {self.vector_size}, but Qdrant has {current_dim}. "
+                            f"PLEASE DELETE THE COLLECTION manually."
+                        )
+                except AttributeError:
+                    # In some qdrant client versions access might be different
+                    pass
+
         except Exception as e:
-            logger.error(f"Failed to ensure collection exists: {e}")
+            logger.error(f"Failed to ensure collection exists for {self.collection_name}: {e}")
             raise
 
     async def save_memory(
@@ -51,18 +71,9 @@ class LongTermMemory:
         vector: list[float],
         category: str = "general"
     ) -> None:
-        """
-        Upserts a vector with payload to Qdrant.
-
-        Args:
-            user_id: Unique identifier for the user
-            text: The text content to store
-            vector: The vector embedding of the text
-            category: Category for the memory (default: "general")
-        """
+        """Upserts a vector with payload to Qdrant."""
         await self._ensure_collection_exists()
 
-        # Generate a valid UUID v4 point ID required by Qdrant
         point_id = str(uuid.uuid4())
 
         try:
@@ -91,17 +102,7 @@ class LongTermMemory:
         query_vector: list[float],
         top_k: int = 3
     ) -> list[str]:
-        """
-        Searches Qdrant for relevant memories, filtered by user_id.
-
-        Args:
-            user_id: Unique identifier for the user
-            query_vector: The vector embedding of the query
-            top_k: Number of results to return (default: 3)
-
-        Returns:
-            List of text strings from the most relevant memories
-        """
+        """Searches Qdrant for relevant memories, filtered by user_id."""
         await self._ensure_collection_exists()
 
         try:
@@ -129,4 +130,5 @@ class LongTermMemory:
 
         except Exception as e:
             logger.error(f"Failed to retrieve memories for user {user_id}: {e}")
+            # If the backend terminal shows the 400 error again, it means the old collection persists
             return []

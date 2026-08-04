@@ -1,5 +1,6 @@
 # apps/backend/app/api/endpoints/vectors.py
 import asyncio
+import logging
 import uuid
 from typing import Annotated
 
@@ -25,6 +26,7 @@ from app.schemas.document import (
     SearchResultItem,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 VECTOR_SIZE = 384
@@ -62,6 +64,7 @@ async def insert_document(
     try:
         client = get_qdrant_client()
     except RuntimeError as exc:
+        logger.error(f"Vector DB unavailable: {exc}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Vector database is currently unavailable",
@@ -71,8 +74,11 @@ async def insert_document(
         await ensure_collection_exists(request.collection_name)
 
         point_id = str(uuid.uuid4())
-        embedding = await generate_embedding(request.text)
 
+        # Generate embedding from the chunk_text
+        embedding = await generate_embedding(request.chunk_text)
+
+        # Save payload using the keys expected by KnowledgeRetriever
         await client.upsert(
             collection_name=request.collection_name,
             points=[
@@ -80,16 +86,18 @@ async def insert_document(
                     id=point_id,
                     vector=embedding,
                     payload={
-                        "text": request.text,
+                        "document_title": request.document_title,
+                        "chunk_text": request.chunk_text,
                         "user_id": str(current_user.id),
                     },
                 )
             ],
         )
     except Exception as exc:
+        logger.error(f"Failed to insert document into vector database: {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to insert document into vector database",
+            detail=f"Failed to insert document into vector database: {str(exc)}",
         ) from exc
 
     return DocumentInsertResponse(
@@ -141,14 +149,15 @@ async def search_documents(
             SearchResultItem(
                 id=str(point.id),
                 score=point.score,
-                text=(point.payload or {}).get("text", ""),
+                text=(point.payload or {}).get("chunk_text", ""),
             )
             for point in search_response.points
         ]
     except Exception as exc:
+        logger.error(f"Failed to search documents in vector database: {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to search documents in vector database",
+            detail=f"Failed to search documents in vector database: {str(exc)}",
         ) from exc
 
     return DocumentSearchResponse(results=results)

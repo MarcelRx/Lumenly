@@ -8,6 +8,7 @@ from groq import AsyncGroq
 
 from app.ai.agent_system.fusion import FusionEngine
 from app.ai.agent_system.router import AgentRouter
+from app.ai.knowledge_brain.retriever import KnowledgeRetriever
 from app.ai.memory_engine import LongTermMemory, MemoryManager, ShortTermMemory
 from app.api.deps import get_current_user
 from app.core.config import settings
@@ -35,6 +36,17 @@ def get_embedding_model() -> TextEmbedding:
     return _embedding_model
 
 
+async def async_embed_func(text: str) -> list[float]:
+    """
+    Async wrapper for the FastEmbed model.
+    Required because KnowledgeRetriever expects an awaitable embedding function.
+    """
+    model = get_embedding_model()
+    # FastEmbed returns a generator of numpy arrays. Extract the first and convert to standard list.
+    embedding = list(model.embed([text]))[0]
+    return embedding.tolist()
+
+
 def get_fusion_engine() -> FusionEngine:
     """Get or initialize the FusionEngine with all dependencies."""
     global _fusion_engine
@@ -50,6 +62,12 @@ def get_fusion_engine() -> FusionEngine:
         long_term = LongTermMemory(qdrant_client)
         memory_manager = MemoryManager(short_term, long_term)
 
+        # Initialize knowledge retriever
+        knowledge_retriever = KnowledgeRetriever(
+            qdrant_client=qdrant_client,
+            embed_func=async_embed_func
+        )
+
         # Initialize agent router
         agent_router = AgentRouter()
 
@@ -58,16 +76,15 @@ def get_fusion_engine() -> FusionEngine:
         if settings.GROQ_API_KEY:
             logger.info("Groq API key detected, initializing AsyncGroq client")
             llm_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-        elif settings.GEMINI_API_KEY:
-            logger.info("Gemini API key detected but no client implemented yet.")
         else:
             logger.warning("No LLM API keys configured, using mock responses")
 
-        # Create FusionEngine
+        # Create FusionEngine, now with Knowledge Retrieval attached!
         _fusion_engine = FusionEngine(
             memory_manager=memory_manager,
             router=agent_router,
-            llm_client=llm_client
+            llm_client=llm_client,
+            knowledge_retriever=knowledge_retriever
         )
 
         logger.info("FusionEngine initialized successfully")
@@ -91,25 +108,21 @@ async def chat(
         embedding_model = get_embedding_model()
 
         # Generate query vector for long-term memory retrieval
-        query_vector = list(embedding_model.embed([request.message]))[0]
+        query_vector = list(embedding_model.embed([request.message]))[0].tolist()
 
         # Process query through FusionEngine
-        # We use str(current_user.id) to ensure memory is tied to the logged-in user
         result = await fusion_engine.process_user_query(
             user_id=str(current_user.id),
             query=request.message,
             query_vector=query_vector
         )
 
-        # For now, knowledge_snippets_used is not tracked by FusionEngine
-        knowledge_snippets_used = 0
-
-        # Return structured response
+        # Return structured response (now dynamically passing knowledge stats!)
         return ChatResponse(
             response=result["response"],
             agent_used=result["agent_used"],
             memories_retrieved=result["memories_retrieved"],
-            knowledge_snippets_used=knowledge_snippets_used
+            knowledge_snippets_used=result.get("knowledge_snippets_used", 0)
         )
 
     except Exception as e:

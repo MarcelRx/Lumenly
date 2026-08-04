@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class DocumentInsertRequest(BaseModel):
-    text: str = Field(..., min_length=1)
+    document_title: str = Field(..., min_length=1)
+    chunk_text: str = Field(..., min_length=1)
     collection_name: str = Field(default="user_documents", min_length=1)
 
 
