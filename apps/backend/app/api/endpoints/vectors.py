@@ -1,11 +1,9 @@
 # apps/backend/app/api/endpoints/vectors.py
-import asyncio
 import logging
 import uuid
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastembed import TextEmbedding
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from qdrant_client.models import (
     Distance,
@@ -16,8 +14,9 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from app.api.deps import get_current_user
-from app.core.qdrant import get_qdrant_client
+from app.api.deps import get_current_user, get_embedding_provider
+from app.core.config import settings
+from app.db.qdrant import get_qdrant_client
 from app.models.user import User
 from app.schemas.document import (
     DocumentInsertRequest,
@@ -30,13 +29,12 @@ from app.schemas.document import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-VECTOR_SIZE = 384
-
 # Define the standardized collection name for Dashboard management
 COLLECTION_NAME = "knowledge_base"
 
-# Initialize the embedding model (generates 384-dimensional vectors)
-embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+# VECTOR_DIMENSION is the single source of truth for vector dimensions
+# All embedding providers must be configured to match this dimension
+VECTOR_SIZE = settings.VECTOR_DIMENSION
 
 
 # -------------------------------------------------------------
@@ -61,11 +59,10 @@ class DocumentListResponse(BaseModel):
 # INTERNAL HELPERS
 # -------------------------------------------------------------
 
-async def generate_embedding(text: str) -> list[float]:
-    def _embed() -> list[float]:
-        return list(embedding_model.embed([text]))[0].tolist()
-
-    return await asyncio.to_thread(_embed)
+async def generate_embedding(text: str, embedding_provider) -> list[float]:
+    """Generate embedding using the configured embedding provider."""
+    # Use the injected embedding provider from the canonical architecture
+    return await embedding_provider.embed(text)
 
 
 async def ensure_collection_exists(collection_name: str) -> None:
@@ -73,7 +70,10 @@ async def ensure_collection_exists(collection_name: str) -> None:
     if not await client.collection_exists(collection_name):
         await client.create_collection(
             collection_name=collection_name,
-            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            vectors_config=VectorParams(
+                size=VECTOR_SIZE,
+                distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
+            ),
         )
 
 # -------------------------------------------------------------
@@ -284,6 +284,7 @@ async def delete_knowledge_base_document(
 async def insert_document(
     request: DocumentInsertRequest,
     current_user: Annotated[User, Depends(get_current_user)],
+    embedding_provider = Depends(get_embedding_provider),
 ) -> DocumentInsertResponse:
     try:
         client = get_qdrant_client()
@@ -299,8 +300,15 @@ async def insert_document(
 
         point_id = str(uuid.uuid4())
 
-        # Generate embedding from the chunk_text
-        embedding = await generate_embedding(request.chunk_text)
+        # Generate embedding from the chunk_text using the canonical provider
+        embedding = await generate_embedding(request.chunk_text, embedding_provider)
+
+        # Validate embedding dimension matches configured dimension
+        if len(embedding) != VECTOR_SIZE:
+            raise ValueError(
+                f"Embedding dimension mismatch: expected {VECTOR_SIZE}, got {len(embedding)}. "
+                f"Provider configuration must match VECTOR_DIMENSION setting."
+            )
 
         # Save payload using the keys expected by KnowledgeRetriever
         await client.upsert(
@@ -339,6 +347,7 @@ async def insert_document(
 async def search_documents(
     request: DocumentSearchRequest,
     current_user: Annotated[User, Depends(get_current_user)],
+    embedding_provider = Depends(get_embedding_provider),
 ) -> DocumentSearchResponse:
     try:
         client = get_qdrant_client()
@@ -352,7 +361,14 @@ async def search_documents(
         if not await client.collection_exists(request.collection_name):
             return DocumentSearchResponse(results=[])
 
-        query_vector = await generate_embedding(request.query)
+        query_vector = await generate_embedding(request.query, embedding_provider)
+
+        # Validate embedding dimension matches configured dimension
+        if len(query_vector) != VECTOR_SIZE:
+            raise ValueError(
+                f"Embedding dimension mismatch: expected {VECTOR_SIZE}, got {len(query_vector)}. "
+                f"Provider configuration must match VECTOR_DIMENSION setting."
+            )
 
         search_response = await client.query_points(
             collection_name=request.collection_name,

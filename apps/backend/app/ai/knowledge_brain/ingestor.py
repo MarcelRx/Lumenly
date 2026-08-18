@@ -4,6 +4,7 @@ from typing import Awaitable, Callable
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
+from app.core.config import settings
 from .chunker import DocumentChunker
 
 
@@ -21,7 +22,7 @@ class KnowledgeIngestor:
         self.qdrant_client = qdrant_client
         self.embed_func = embed_func
         self.collection_name = "knowledge_base"
-        self.vector_size = 768
+        self.vector_size = settings.VECTOR_DIMENSION
 
         # Ensure collection exists will be called lazily when needed
         # to avoid async issues in __init__
@@ -38,7 +39,7 @@ class KnowledgeIngestor:
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(
                     size=self.vector_size,
-                    distance=Distance.COSINE
+                    distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
                 )
             )
 

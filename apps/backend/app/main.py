@@ -7,28 +7,42 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.chat import router as fusion_chat_router
+from app.api.endpoints.ai import router as ai_router
 from app.api.endpoints.auth import router as auth_router
-from app.api.endpoints.chat import router as chat_router
+from app.api.endpoints.coaching import router as coaching_router
+from app.api.endpoints.documents import router as documents_router
+from app.api.endpoints.journals import router as journals_router
+from app.api.endpoints.memory import router as memory_router
 from app.api.endpoints.metrics import router as metrics_router
 from app.api.endpoints.users import router as users_router
 from app.api.endpoints.vectors import router as vectors_router
 from app.core.config import settings
-from app.core.database import init_db
-from app.core.qdrant import close_qdrant, init_qdrant
-from app.core.redis import close_redis, init_redis
+from app.db.mongo import close_mongo, init_mongo
+from app.db.postgres import close_postgres
+from app.db.qdrant import close_qdrant, init_qdrant
+from app.db.redis import close_redis, init_redis
+from app.middleware.rate_limit import rate_limit_middleware
+
+
+def parse_cors_origins(origins_string: str) -> list[str]:
+    """Parse comma-separated origins string into list."""
+    if not origins_string:
+        return []
+    return [origin.strip() for origin in origins_string.split(",") if origin.strip()]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # عملیات زمان راه‌اندازی (Startup)
-    await init_db()
+    # Startup operations
+    await init_mongo()
     await init_qdrant()
     await init_redis()
     yield
+    # Shutdown operations - close connection pools
+    await close_postgres()
+    await close_mongo()
     await close_qdrant()
     await close_redis()
-    # عملیات زمان خاموش شدن (Shutdown) - در صورت نیاز برای بستن کانکشن‌پول‌ها
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -36,14 +50,110 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# تنظیم CORS بر اساس نیازهای فرانت‌اند
+# Production-safe CORS configuration
+allowed_origins = parse_cors_origins(settings.ALLOW_ORIGINS)
+
+# Security check: reject wildcard with credentials (browsers will reject this anyway)
+if "*" in allowed_origins and settings.ALLOW_CREDENTIALS:
+    raise ValueError(
+        "Wildcard CORS origins with credentials are not allowed. "
+        "Set ALLOW_CREDENTIALS=false or use specific origins in ALLOW_ORIGINS."
+    )
+
+# Security check: reject wildcard origins in production
+if settings.APP_ENV == "production" and "*" in allowed_origins:
+    raise ValueError(
+        "Wildcard CORS origins are not allowed in production. "
+        "Set ALLOW_ORIGINS environment variable to specific domains."
+    )
+
+# Security check: staging should also use restrictive CORS by default
+if settings.APP_ENV == "staging" and "*" in allowed_origins:
+    import warnings
+    warnings.warn(
+        "Wildcard CORS origins in staging environment. "
+        "Consider using specific origins for better security.",
+        RuntimeWarning
+    )
+
+# Fallback to localhost for development if no origins specified
+if not allowed_origins and settings.APP_ENV == "development":
+    allowed_origins = ["http://localhost:3000", "http://localhost:8000"]
+
+# Security validation: validate embedding configuration
+try:
+    settings.validate_embedding_config()
+except ValueError as e:
+    if settings.APP_ENV == "production":
+        raise ValueError(f"Embedding configuration validation failed: {e}")
+    else:
+        import warnings
+        warnings.warn(f"Embedding configuration validation failed: {e}", RuntimeWarning)
+
+# Production configuration validation
+if settings.APP_ENV == "production":
+    # Validate critical security settings
+    if len(settings.SECRET_KEY) < 32:
+        raise ValueError(
+            "SECRET_KEY is too short for production. "
+            "Use a strong secret key with at least 32 characters."
+        )
+
+    if len(settings.JWT_SECRET) < 32:
+        raise ValueError(
+            "JWT_SECRET is too short for production. "
+            "Use a strong JWT secret with at least 32 characters."
+        )
+
+    if settings.SECRET_KEY == settings.JWT_SECRET:
+        raise ValueError(
+            "SECRET_KEY and JWT_SECRET must be different for security."
+        )
+
+    if settings.RATE_LIMIT_ENABLED and settings.RATE_LIMIT_FAIL_OPEN:
+        raise ValueError(
+            "RATE_LIMIT_FAIL_OPEN is True in production. "
+            "This allows requests when Redis is unavailable, which violates security requirements. "
+            "Set RATE_LIMIT_FAIL_OPEN=False for fail-closed behavior."
+        )
+
+    # Validate required infrastructure URLs
+    if not settings.POSTGRES_URL or "localhost" in settings.POSTGRES_URL:
+        raise ValueError(
+            "POSTGRES_URL must be configured for production without localhost."
+        )
+
+    if not settings.MONGODB_URL or "localhost" in settings.MONGODB_URL:
+        raise ValueError(
+            "MONGODB_URL must be configured for production without localhost."
+        )
+
+    if not settings.REDIS_URL or "localhost" in settings.REDIS_URL:
+        raise ValueError(
+            "REDIS_URL must be configured for production without localhost."
+        )
+
+    if not settings.QDRANT_URL or "localhost" in settings.QDRANT_URL:
+        raise ValueError(
+            "QDRANT_URL must be configured for production without localhost."
+        )
+
+    # Validate API keys are set for production
+    if not settings.GROQ_API_KEY and not settings.GEMINI_API_KEY:
+        raise ValueError(
+            "At least one LLM API key (GROQ_API_KEY or GEMINI_API_KEY) must be set for production."
+        )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # در محیط پروداکشن محدود شود
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=settings.ALLOW_CREDENTIALS,
+    allow_methods=[method.strip() for method in settings.ALLOW_METHODS.split(",")],
+    allow_headers=[header.strip() for header in settings.ALLOW_HEADERS.split(",")],
 )
+
+# Rate limiting middleware
+app.middleware("http")(rate_limit_middleware)
 
 # میان‌افزار مدیریت هویت درخواست (Request-ID) و زمان‌سنجی
 @app.middleware("http")
@@ -83,15 +193,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
+app.include_router(journals_router, prefix="/api/v1/journals", tags=["journals"])
+app.include_router(memory_router, prefix="/api/v1/memory", tags=["memory"])
 app.include_router(vectors_router, prefix="/api/v1/vectors", tags=["vectors"])
-app.include_router(chat_router, prefix="/api/v1/chat", tags=["chat"])
-app.include_router(fusion_chat_router)
-app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
+app.include_router(ai_router, prefix="/v1/ai", tags=["ai"])
+app.include_router(coaching_router, prefix="/v1/coaching", tags=["coaching"])
+app.include_router(metrics_router, prefix="/v1", tags=["metrics"])
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {
-        "success": True,
-        "status": "healthy",
-        "environment": settings.ENVIRONMENT
+        "status": "ok",
+        "service": "lumenly-api"
     }

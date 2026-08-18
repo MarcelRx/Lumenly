@@ -1,22 +1,53 @@
 # apps/backend/app/models/user.py
-from datetime import datetime, timezone
-from typing import Optional
+import uuid
+from enum import Enum
 
-from beanie import Document, Indexed
-from pydantic import EmailStr, Field
+from sqlalchemy import Boolean, String
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base_class import Base
 
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
 
 
-class User(Document):
-    email: Indexed(EmailStr, unique=True)
-    hashed_password: str
-    full_name: Optional[str] = None
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
+class User(Base):
+    __tablename__ = "users"
 
-    class Settings:
-        name = "users"
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+        nullable=False,
+    )
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    full_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    role: Mapped[UserRole] = mapped_column(
+        SQLEnum(UserRole, name="userrole", create_constraint=True),
+        default=UserRole.USER,
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )

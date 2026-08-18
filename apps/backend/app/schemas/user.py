@@ -1,9 +1,11 @@
 # apps/backend/app/schemas/user.py
+import uuid
 from datetime import datetime
 from typing import Optional
 
-from beanie import PydanticObjectId
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from app.models.user import UserRole
 
 
 class UserCreate(BaseModel):
@@ -20,17 +22,14 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: PydanticObjectId
+    id: uuid.UUID
     email: EmailStr
     full_name: Optional[str] = None
+    role: UserRole
     is_active: bool
+    is_verified: bool
     created_at: datetime
     updated_at: datetime
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
 
 
 class TokenData(BaseModel):

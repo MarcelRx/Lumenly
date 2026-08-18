@@ -11,11 +11,13 @@ from qdrant_client.models import (
     VectorParams,
 )
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "user_long_term_memory"
-# Standard dimension for BAAI/bge-small-en-v1.5
-DEFAULT_VECTOR_SIZE = 384
+# Standard dimension from configuration
+DEFAULT_VECTOR_SIZE = settings.VECTOR_DIMENSION
 
 
 class LongTermMemory:
@@ -39,7 +41,7 @@ class LongTermMemory:
                     collection_name=self.collection_name,
                     vectors_config=VectorParams(
                         size=self.vector_size,
-                        distance=Distance.COSINE
+                        distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
                     )
                 )
                 logger.info(f"Collection {self.collection_name} created successfully with dimension {self.vector_size}")

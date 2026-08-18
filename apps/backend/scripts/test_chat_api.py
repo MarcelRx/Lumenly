@@ -14,8 +14,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from fastapi.testclient import TestClient
 
-from app.core.qdrant import init_qdrant
-from app.core.redis import init_redis
+from app.db.qdrant import init_qdrant
+from app.db.redis import init_redis
 from app.main import app
 
 

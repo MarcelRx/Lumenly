@@ -1,0 +1,179 @@
+"""Unit tests for the chat service (RAG implementation)."""
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
+import pytest
+
+from app.core.config import settings
+from app.schemas.chat import ChatResponse
+from app.services.chat_service import (
+    call_gemini_api,
+    generate_rag_response,
+    get_embedding_model,
+    retrieve_context,
+)
+
+
+class TestGetEmbeddingModel:
+    """Tests for the embedding model singleton."""
+
+    def test_get_embedding_model_returns_singleton(self):
+        """Ensure the same model instance is returned on subsequent calls."""
+        with patch("app.services.chat_service._embedding_model", None):
+            with patch("app.services.chat_service.TextEmbedding") as mock_embed:
+                mock_instance = MagicMock()
+                mock_embed.return_value = mock_instance
+
+                instance1 = get_embedding_model()
+                instance2 = get_embedding_model()
+
+                assert instance1 is instance2
+                mock_embed.assert_called_once_with(model_name=settings.EMBEDDING_MODEL)
+
+
+class TestRetrieveContext:
+    """Tests for context retrieval from Qdrant."""
+
+    @pytest.mark.asyncio
+    async def test_retrieve_context_success(self):
+        """Test successful context retrieval with valid results."""
+        mock_client = AsyncMock()
+        mock_point = MagicMock()
+        mock_point.payload = {"text": "Relevant document chunk"}
+        mock_point.score = 0.9
+        mock_result = MagicMock()
+        mock_result.points = [mock_point]
+
+        mock_client.query_points.return_value = mock_result
+
+        with patch("app.services.chat_service.get_qdrant_client", return_value=mock_client):
+            with patch(
+                "app.services.chat_service.get_embedding_model",
+                return_value=MagicMock(embed=MagicMock(return_value=[[0.1, 0.2, 0.3]]))
+            ):
+                result = await retrieve_context("test query", "user-123", collection_name="test_collection", top_k=3)
+
+        assert len(result) == 1
+        assert result[0] == "Relevant document chunk"
+        mock_client.query_points.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_retrieve_context_empty_results(self):
+        """Test handling when no documents are found."""
+        mock_client = AsyncMock()
+        mock_client.query_points.return_value = MagicMock(points=[])
+
+        with patch("app.services.chat_service.get_qdrant_client", return_value=mock_client):
+            with patch(
+                "app.services.chat_service.get_embedding_model",
+                return_value=MagicMock(embed=MagicMock(return_value=[[0.1, 0.2, 0.3]]))
+            ):
+                result = await retrieve_context("test query", "user-123", collection_name="test_collection")
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_retrieve_context_handles_exception(self):
+        """Test graceful handling of Qdrant connection errors."""
+        mock_client = AsyncMock()
+        mock_client.query_points.side_effect = Exception("Connection failed")
+
+        with patch("app.services.chat_service.get_qdrant_client", return_value=mock_client):
+            with patch(
+                "app.services.chat_service.get_embedding_model",
+                return_value=MagicMock(embed=MagicMock(return_value=[[0.1, 0.2, 0.3]]))
+            ):
+                result = await retrieve_context("test query", "user-123", collection_name="test_collection")
+
+        assert result == []
+
+
+class TestCallGeminiApi:
+    """Tests for the Gemini API client with retry logic."""
+
+    @pytest.mark.asyncio
+    async def test_call_gemini_api_success(self):
+        """Test successful API call with valid response."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "candidates": [
+                {"content": {"parts": [{"text": "Generated answer"}]}}
+            ]
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.post.return_value = mock_response
+
+        with patch.object(settings, "GEMINI_API_KEY", "test-key"):
+            with patch("httpx.AsyncClient", return_value=mock_client):
+                result = await call_gemini_api("test question", ["context"])
+
+        assert result == "Generated answer"
+
+    @pytest.mark.asyncio
+    async def test_call_gemini_api_retry_on_timeout(self):
+        """Test exponential backoff retry on timeout."""
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.post.side_effect = [
+            httpx.TimeoutException("timeout"),
+            MagicMock(
+                json=lambda: {"candidates": [{"content": {"parts": [{"text": "Success"}]}}]},
+                raise_for_status=MagicMock()
+            )
+        ]
+
+        with patch.object(settings, "GEMINI_API_KEY", "test-key"):
+            with patch("httpx.AsyncClient", return_value=mock_client):
+                with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                    result = await call_gemini_api("test question", [])
+
+        assert result == "Success"
+        assert mock_sleep.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_call_gemini_api_no_api_key(self):
+        """Test error when API key is missing."""
+        with patch.object(settings, "GEMINI_API_KEY", None):
+            with pytest.raises(ValueError, match="GEMINI_API_KEY is not configured"):
+                await call_gemini_api("test question", [])
+
+
+class TestGenerateRagResponse:
+    """Tests for the main RAG response generator."""
+
+    @pytest.mark.asyncio
+    async def test_generate_rag_response_integration(self):
+        """Test end-to-end RAG response generation."""
+        mock_point = MagicMock()
+        mock_point.payload = {"text": "Context chunk"}
+        mock_point.score = 0.9
+        mock_result = MagicMock()
+        mock_result.points = [mock_point]
+
+        mock_client = AsyncMock()
+        mock_client.query_points.return_value = mock_result
+
+        mock_gemini_response = MagicMock()
+        mock_gemini_response.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": "AI answer"}]}}]
+        }
+        mock_gemini_response.raise_for_status = MagicMock()
+
+        mock_http_client = AsyncMock()
+        mock_http_client.__aenter__.return_value = mock_http_client
+        mock_http_client.post.return_value = mock_gemini_response
+
+        with patch("app.services.chat_service.get_qdrant_client", return_value=mock_client):
+            with patch("app.services.chat_service.get_embedding_model",
+                       return_value=MagicMock(embed=MagicMock(return_value=[[0.1, 0.2]]))):
+                with patch.object(settings, "GEMINI_API_KEY", "test-key"):
+                    with patch("httpx.AsyncClient", return_value=mock_http_client):
+                        response = await generate_rag_response("question", "user-1", "test_collection")
+
+        assert isinstance(response, ChatResponse)
+        assert response.answer == "AI answer"
+        # Context includes system prompt + chat history + retrieved context
+        assert any("Context chunk" in str(item) for item in response.context)

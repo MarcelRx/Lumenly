@@ -78,5 +78,6 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.env.test
 credentials.json
 *.pem

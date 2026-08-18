@@ -5,14 +5,14 @@ Knowledge Brain Verification Script
 Tests the document chunking, ingestion, and retrieval functionality.
 """
 import asyncio
-import sys
 import os
+import sys
 
 # Add the app directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app.core.qdrant import init_qdrant, close_qdrant, get_qdrant_client
 from app.ai.knowledge_brain import KnowledgeIngestor, KnowledgeRetriever
+from app.db.qdrant import close_qdrant, get_qdrant_client, init_qdrant
 
 
 async def mock_embed_func(text: str) -> list[float]:
@@ -49,15 +49,15 @@ async def test_knowledge_brain():
         # Create mock document text (simulating Atomic Habits Chapter 1)
         mock_text = """
         Atomic Habits Chapter 1: The aggregation of marginal gains
-        
+
         The fate of British Cycling changed one day in 2003. The organization, which was the governing body for professional cycling in Great Britain, had recently hired Dave Brailsford as its new performance director. At the time, professional cyclists in Great Britain had endured nearly one hundred years of mediocrity. In fact, they had won just a single gold medal at the Olympic Games since 1908, and they had never won the Tour de France.
-        
+
         Brailsford had been hired to put British Cycling on a new trajectory. What made him different from previous coaches was his relentless commitment to a strategy that he referred to as the aggregation of marginal gains. The whole principle came from the idea that if you broke down everything you could think of that goes into riding a bike, and then improved it by 1 percent, you will get a significant increase when you put them all together.
-        
+
         Brailsford believed in the power of small improvements. He didn't focus on one big transformation. Instead, he searched for tiny margins of improvement in everything they did. He redesigned the bike seats to make them more comfortable. He rubbed the tires with alcohol to improve grip. He tested different fabrics in wind tunnels to see which one had the least drag. He even had the athletes wash their hands with hot water to prevent infections that could lead to illness.
-        
+
         The results were stunning. In the five years after Brailsford took over, the British cycling team won 66 Olympic and Paralympic gold medals and 5 Tour de France victories. They dominated the sport in a way that had never been seen before.
-        
+
         This is the central thesis of this book: small habits can lead to remarkable results. The aggregation of marginal gains is not just about cycling—it's about life. By making tiny improvements in our daily habits, we can achieve extraordinary outcomes over time.
         """
 
@@ -103,11 +103,11 @@ async def test_knowledge_brain():
                 print(f"  Preview: {chunk_text[:100]}...")
                 break
 
-        assert found_concept, f"Expected concept 'marginal gains' not found in any retrieved chunk"
+        assert found_concept, "Expected concept 'marginal gains' not found in any retrieved chunk"
 
         # Cleanup - delete test points
         print(f"\nCleaning up test data for user: {test_user_id}")
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
 
         filter_ = Filter(
             must=[FieldCondition(key="user_id", match=MatchValue(value=test_user_id))]

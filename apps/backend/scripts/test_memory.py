@@ -5,15 +5,16 @@ Memory Engine Verification Script
 Tests the short-term and long-term memory functionality.
 """
 import asyncio
-import sys
 import os
+import sys
 
 # Add the app directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app.core.redis import init_redis, close_redis, get_redis_client
-from app.core.qdrant import init_qdrant, close_qdrant, get_qdrant_client
-from app.ai.memory_engine import ShortTermMemory, LongTermMemory
+from app.ai.memory_engine import LongTermMemory, ShortTermMemory
+from app.db.qdrant import close_qdrant, get_qdrant_client, init_qdrant
+from app.db.redis import close_redis, get_redis_client, init_redis
+from app.core.config import settings
 
 
 async def test_short_term_memory():
@@ -52,12 +53,12 @@ async def test_long_term_memory():
     print("\nTesting Long-Term Memory (Qdrant)...")
 
     qdrant_client = get_qdrant_client()
-    long_term = LongTermMemory(qdrant_client, vector_size=768)
+    long_term = LongTermMemory(qdrant_client, vector_size=settings.VECTOR_DIMENSION)
 
     test_user_id = "test_user_123"
 
-    # Create a sample vector (768 dimensions for Gemini)
-    sample_vector = [0.1] * 768
+    # Create a sample vector
+    sample_vector = [0.1] * settings.VECTOR_DIMENSION
 
     # Save a memory
     await long_term.save_memory(
@@ -82,7 +83,7 @@ async def test_long_term_memory():
     print(f"  Retrieved: {retrieved[0][:50]}...")
 
     # Cleanup - delete the test point
-    from qdrant_client.models import Filter, FieldCondition, MatchValue
+    from qdrant_client.models import FieldCondition, Filter, MatchValue
     filter_ = Filter(
         must=[FieldCondition(key="user_id", match=MatchValue(value=test_user_id))]
     )

@@ -1,8 +1,9 @@
 # apps/backend/tests/test_vectors.py
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import httpx
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 
 from app.core.security import create_access_token
@@ -10,8 +11,8 @@ from app.main import app
 from app.models.user import User
 
 
-@pytest.fixture
-async def test_user():
+@pytest_asyncio.fixture
+async def test_user(setup_databases, db_session):
     """Create a test user for authentication."""
     user = User(
         email="test_vectors@example.com",
@@ -19,13 +20,16 @@ async def test_user():
         full_name="Test Vectors User",
         is_active=True
     )
-    await user.insert()
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     yield user
-    await user.delete()
+    await db_session.delete(user)
+    await db_session.commit()
 
 
-@pytest.fixture
-def auth_headers(test_user):
+@pytest_asyncio.fixture
+async def auth_headers(test_user):
     """Generate authentication headers for the test user."""
     token = create_access_token(str(test_user.id), email=test_user.email)
     return {"Authorization": f"Bearer {token}"}
@@ -36,13 +40,19 @@ async def test_vectors_search_endpoint_success(auth_headers):
     """Test successful search request returning results."""
     from qdrant_client.models import ScoredPoint
 
+    from app.core.config import settings
+
+    # Use the configured vector dimension (1536 by default)
+    vector_dimension = settings.VECTOR_DIMENSION
+    mock_embedding = [0.1] * vector_dimension
+
     mock_search_results = [
         ScoredPoint(
             id="1",
             version=1,
             score=0.95,
-            payload={"text": "This is a document", "user_id": "test_user_id"},
-            vector=[0.1, 0.2, 0.3]
+            payload={"chunk_text": "This is a document", "user_id": "test_user_id"},
+            vector=mock_embedding
         )
     ]
 
@@ -56,7 +66,7 @@ async def test_vectors_search_endpoint_success(auth_headers):
         mock_qdrant_client.collection_exists = AsyncMock(return_value=True)
         mock_get_qdrant.return_value = mock_qdrant_client
 
-        mock_generate_embedding.return_value = [0.1, 0.2, 0.3]
+        mock_generate_embedding.return_value = mock_embedding
 
         async with AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
@@ -69,6 +79,7 @@ async def test_vectors_search_endpoint_success(auth_headers):
         data = response.json()
         assert "results" in data
         assert len(data["results"]) == 1
+        # The actual endpoint returns "text" field from chunk_text in payload
         assert data["results"][0]["text"] == "This is a document"
 
 
