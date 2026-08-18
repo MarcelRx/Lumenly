@@ -8,7 +8,6 @@ from app.services.llm import MockLLMService
 from app.services.vector import vector_service
 
 
-@pytest.mark.skip("Temporarily skipping due to provider selection issues - requires real API key or mock provider fix")
 @pytest.mark.asyncio
 async def test_ai_ask_endpoint(async_client, cleanup_qdrant, cleanup_users):
     """Test the /v1/ai/ask endpoint with authentication and context."""

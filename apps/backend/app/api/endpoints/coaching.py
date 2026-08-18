@@ -13,7 +13,7 @@ from app.api.deps import get_current_active_user
 from app.core.security import decode_access_token
 from app.db.redis import get_redis_client
 from app.middleware.rate_limit import RateLimiter
-from app.models.domain import CoachingSession
+from app.models.domain import CoachingSession, SessionType
 from app.models.user import User
 from app.schemas.coaching import (
     CoachingHistoryResponse,
@@ -607,13 +607,13 @@ async def coaching_websocket(
                         )
 
                         # Generate response based on session type
-                        if session.session_type == "assessment":
+                        if session.session_type == SessionType.ASSESSMENT:
                             response = await coaching_service.handle_assessment_flow(session, user_content)
-                        elif session.session_type == "nudge":
+                        elif session.session_type == SessionType.NUDGE:
                             response = await coaching_service.handle_nudge_flow(session, user_content)
-                        elif session.session_type == "reflection":
+                        elif session.session_type == SessionType.REFLECTION:
                             response = await coaching_service.handle_reflection_flow(session, user_content)
-                        elif session.session_type == "escalation":
+                        elif session.session_type == SessionType.ESCALATION:
                             response = await coaching_service.handle_escalation_flow(session, user_content)
                         else:
                             response = {

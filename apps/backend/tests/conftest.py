@@ -213,7 +213,7 @@ async def async_client(setup_databases):
 
 @pytest.fixture(scope="function")
 def client(setup_databases):
-    """Create a synchronous test client for WebSocket testing."""
+    """Create a synchronous test client for non-WebSocket testing."""
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.testclient import TestClient
@@ -246,6 +246,7 @@ def client(setup_databases):
     test_app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
     test_app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
     test_app.include_router(journals_router, prefix="/api/v1/journals", tags=["journals"])
+    # test_app.include_router(memory_router, prefix="/api/v1/memory", tags=["memory"])  # Temporarily disabled
     test_app.include_router(vectors_router, prefix="/api/v1/vectors", tags=["vectors"])
     test_app.include_router(ai_router, prefix="/v1/ai", tags=["ai"])
     test_app.include_router(coaching_router, prefix="/v1/coaching", tags=["coaching"])
@@ -261,3 +262,122 @@ def client(setup_databases):
 
     with TestClient(test_app) as test_client:
         yield test_client
+
+
+@pytest.fixture(scope="function")
+async def async_websocket_client(setup_databases):
+    """Create an async WebSocket client for WebSocket testing with proper async database access."""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from httpx import ASGITransport, AsyncClient
+
+    from app.api.endpoints.ai import router as ai_router
+    from app.api.endpoints.auth import router as auth_router
+    from app.api.endpoints.coaching import router as coaching_router
+    from app.api.endpoints.documents import router as documents_router
+    from app.api.endpoints.journals import router as journals_router
+    from app.api.endpoints.metrics import router as metrics_router
+    from app.api.endpoints.users import router as users_router
+    from app.api.endpoints.vectors import router as vectors_router
+    from app.core.config import settings
+
+    test_app = FastAPI(
+        title=settings.APP_NAME,
+        version=settings.VERSION,
+        lifespan=None  # No lifespan - databases managed by setup_databases
+    )
+
+    test_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    test_app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+    test_app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+    test_app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
+    test_app.include_router(journals_router, prefix="/api/v1/journals", tags=["journals"])
+    # test_app.include_router(memory_router, prefix="/api/v1/memory", tags=["memory"])  # Temporarily disabled
+    test_app.include_router(vectors_router, prefix="/api/v1/vectors", tags=["vectors"])
+    test_app.include_router(ai_router, prefix="/v1/ai", tags=["ai"])
+    test_app.include_router(coaching_router, prefix="/v1/coaching", tags=["coaching"])
+    test_app.include_router(metrics_router, prefix="/v1", tags=["metrics"])
+
+    # Add health endpoint
+    @test_app.get("/health", tags=["Health"])
+    async def health_check():
+        return {
+            "status": "ok",
+            "service": "lumenly-api"
+        }
+
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
+@pytest.fixture(scope="function")
+async def create_test_user(db_session):
+    """Helper fixture to create a test user with proper async database operations."""
+    async def _create_user(email: str, password: str = "TestPassword123!", is_active: bool = True):
+        from app.core.security import get_password_hash
+        from app.models.user import User
+
+        user = User(
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_active=is_active,
+        )
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
+
+    return _create_user
+
+
+@pytest.fixture(scope="function")
+async def create_test_user_with_token(async_websocket_client, create_test_user):
+    """Helper fixture to create a test user and return their JWT token."""
+    async def _create_user_with_token(email: str, password: str = "TestPassword123!", is_active: bool = True):
+        # Create user
+        user = await create_test_user(email, password, is_active)
+
+        # Login to get token
+        login_response = await async_websocket_client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": email,
+                "password": password,
+            },
+        )
+        assert login_response.status_code == 200
+        token_data = login_response.json()
+        return user, token_data["access_token"]
+
+    return _create_user_with_token
+
+
+@pytest.fixture(scope="function")
+async def create_coaching_session(create_test_user):
+    """Helper fixture to create a coaching session with proper async MongoDB operations."""
+    async def _create_session(user_id, session_type="assessment", title="Test Session"):
+        from app.models.domain import CoachingSession, SessionType
+
+        # Convert string to enum if needed
+        if isinstance(session_type, str):
+            session_type = SessionType(session_type)
+
+        session = CoachingSession(
+            user_id=user_id,
+            session_type=session_type,
+            agent_id="test_agent",
+            title=title,
+            metadata={"test": True},
+        )
+        await session.insert()
+        return session
+
+    return _create_session
