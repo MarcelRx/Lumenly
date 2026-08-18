@@ -9,6 +9,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, PyJWTError
 
+from app.ai.tools.registry import get_tool_registry
 from app.api.deps import get_current_active_user
 from app.core.security import decode_access_token
 from app.db.redis import get_redis_client
