@@ -21,6 +21,95 @@ class Settings(BaseSettings):
         description="Application secret key - REQUIRED in production",
     )
 
+    # Known placeholder/test secrets that must be rejected in production
+    _PLACEHOLDER_SECRETS = {
+        "test_secret_key_do_not_use_in_production",
+        "test_jwt_secret_do_not_use_in_production",
+        "test_groq_api_key_replace_before_production",
+        "test_gemini_api_key_replace_before_production",
+        "test_elevenlabs_api_key_replace_before_production",
+        "lumenly",  # Default database password
+        "change_me_in_production",
+        "generate-strong-secret-key-in-production",
+        "generate-strong-jwt-secret-in-production",
+        "mock-key",
+    }
+
+    def _is_placeholder_secret(self, value: str) -> bool:
+        """Check if a value is a known placeholder/test secret."""
+        if not value:
+            return False
+        value_lower = value.lower().strip()
+        # Check for exact matches with known placeholders
+        if value_lower in self._PLACEHOLDER_SECRETS:
+            return True
+        # Check for common test patterns
+        if "test_" in value_lower and len(value_lower) < 50:
+            return True
+        if "replace_before_production" in value_lower:
+            return True
+        if "do_not_use_in_production" in value_lower:
+            return True
+        return False
+
+    def _validate_production_secrets(self) -> None:
+        """Validate that production doesn't use placeholder/test secrets."""
+        if self.APP_ENV != "production":
+            return
+
+        errors = []
+
+        # Check SECRET_KEY
+        if self._is_placeholder_secret(self.SECRET_KEY):
+            errors.append("SECRET_KEY appears to be a placeholder/test value")
+
+        # Check JWT_SECRET
+        if self._is_placeholder_secret(self.JWT_SECRET):
+            errors.append("JWT_SECRET appears to be a placeholder/test value")
+
+        # Check LLM API keys
+        if self.GROQ_API_KEY and self._is_placeholder_secret(self.GROQ_API_KEY):
+            errors.append("GROQ_API_KEY appears to be a placeholder/test value")
+
+        if self.GEMINI_API_KEY and self._is_placeholder_secret(self.GEMINI_API_KEY):
+            errors.append("GEMINI_API_KEY appears to be a placeholder/test value")
+
+        # Check database credentials in URLs
+        from urllib.parse import urlparse
+
+        # Extract and check PostgreSQL password
+        if self.POSTGRES_URL:
+            try:
+                parsed = urlparse(self.POSTGRES_URL)
+                if parsed.password and self._is_placeholder_secret(parsed.password):
+                    errors.append("POSTGRES_URL contains placeholder password")
+            except Exception:
+                pass
+
+        # Extract and check MongoDB password
+        if self.MONGODB_URL:
+            try:
+                parsed = urlparse(self.MONGODB_URL)
+                if parsed.password and self._is_placeholder_secret(parsed.password):
+                    errors.append("MONGODB_URL contains placeholder password")
+            except Exception:
+                pass
+
+        # Extract and check Redis password
+        if self.REDIS_URL:
+            try:
+                parsed = urlparse(self.REDIS_URL)
+                if parsed.password and self._is_placeholder_secret(parsed.password):
+                    errors.append("REDIS_URL contains placeholder password")
+            except Exception:
+                pass
+
+        if errors:
+            raise ValueError(
+                f"Production configuration validation failed: {', '.join(errors)}. "
+                "Replace placeholder/test secrets with real production values."
+            )
+
     # Infrastructure URLs
     POSTGRES_URL: str = Field(
         ...,
@@ -145,6 +234,8 @@ class Settings(BaseSettings):
                 f"Invalid DISTANCE_METRIC '{self.DISTANCE_METRIC}'. "
                 f"Must be one of: {', '.join(valid_metrics)}"
             )
+
+
 
     # Rate Limiting Configuration
     RATE_LIMIT_ENABLED: bool = True

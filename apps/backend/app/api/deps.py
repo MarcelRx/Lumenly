@@ -97,35 +97,51 @@ def require_role(allowed_roles: list[UserRole]):
 
 async def get_llm_provider() -> LLMProviderInterface:
     """Dependency to get the LLM provider based on configuration."""
-    # Default to mock provider to prevent test failures
-    # Only use real providers if API keys are properly configured
-    provider_name = "mock"  # Safe default
-
-    # Check if API keys are actually set and non-empty
-    # If they're empty strings or only whitespace, use mock
-    groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
-    gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
-
-    groq_key_valid = groq_key and len(groq_key) > 20
-    gemini_key_valid = gemini_key and len(gemini_key) > 20
-
+    # In production, NEVER use mock provider
     if settings.APP_ENV == "production":
-        # In production, use real provider if configured
-        if groq_key_valid:
+        # Production must use real provider
+        groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
+        gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
+
+        groq_key_valid = groq_key and len(groq_key) > 20
+        gemini_key_valid = gemini_key and len(gemini_key) > 20
+
+        # Check for placeholder patterns in production
+        def is_placeholder_key(key: str) -> bool:
+            if not key:
+                return False
+            key_lower = key.lower()
+            return any(pattern in key_lower for pattern in [
+                "test_", "replace_before_production", "do_not_use_in_production", "mock"
+            ])
+
+        if groq_key_valid and not is_placeholder_key(groq_key):
             provider_name = "groq"
-        elif gemini_key_valid:
+            api_key = groq_key
+        elif gemini_key_valid and not is_placeholder_key(gemini_key):
             provider_name = "gemini"
+            api_key = gemini_key
         else:
             # Production without valid API keys should fail fast
-            raise ValueError("Production environment requires valid GROQ_API_KEY or GEMINI_API_KEY")
+            raise ValueError(
+                "Production environment requires valid GROQ_API_KEY or GEMINI_API_KEY. "
+                "Mock provider is not allowed in production."
+            )
     else:
-        # In development/staging, ONLY use real provider if keys are very long (real keys)
-        # Real API keys are typically 30+ characters
-        if groq_key_valid and len(groq_key) >= 30:
+        # In development/staging, allow mock provider for testing
+        provider_name = "mock"  # Safe default for development
+        api_key = "mock-key"
+
+        # Only use real provider if keys are actually set and look real (30+ chars)
+        groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
+        gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
+
+        if groq_key and len(groq_key) >= 30:
             provider_name = "groq"
-        elif gemini_key_valid and len(gemini_key) >= 30:
+            api_key = groq_key
+        elif gemini_key and len(gemini_key) >= 30:
             provider_name = "gemini"
-        # Otherwise, use mock (default)
+            api_key = gemini_key
 
     # Map provider to model
     model_map = {
@@ -134,17 +150,10 @@ async def get_llm_provider() -> LLMProviderInterface:
         "mock": "mock-model"
     }
 
-    # Map provider to API key
-    api_key_map = {
-        "groq": groq_key if provider_name == "groq" else "mock-key",
-        "gemini": gemini_key if provider_name == "gemini" else "mock-key",
-        "mock": "mock-key"
-    }
-
     config = LLMConfig(
         provider=provider_name,
         model=model_map.get(provider_name, "mock-model"),
-        api_key=api_key_map.get(provider_name, "mock-key"),
+        api_key=api_key,
     )
     provider = LLMProviderFactory.create(config)
     await provider.initialize()

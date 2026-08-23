@@ -198,13 +198,89 @@ async def async_client(setup_databases):
     test_app.include_router(coaching_router, prefix="/v1/coaching", tags=["coaching"])
     test_app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
 
-    # Add health endpoint
+    # Add health endpoints
     @test_app.get("/health", tags=["Health"])
     async def health_check():
         return {
             "status": "ok",
             "service": "lumenly-api"
         }
+
+    @test_app.get("/health/live", tags=["Health"])
+    async def liveness_check():
+        return {
+            "status": "alive",
+            "service": "lumenly-api"
+        }
+
+    @test_app.get("/health/ready", tags=["Health"])
+    async def readiness_check():
+        from asyncio import timeout
+
+        from fastapi import HTTPException
+        from sqlalchemy import text
+
+        from app.db.mongo import get_mongo_client
+        from app.db.postgres import AsyncSessionLocal
+        from app.db.qdrant import get_qdrant_client
+        from app.db.redis import get_redis_client
+
+        health_status = {
+            "status": "ready",
+            "service": "lumenly-api",
+            "checks": {}
+        }
+
+        overall_healthy = True
+
+        # Check PostgreSQL with timeout
+        try:
+            async with timeout(5.0):
+                async with AsyncSessionLocal() as session:
+                    await session.execute(text("SELECT 1"))
+            health_status["checks"]["postgres"] = {"status": "healthy"}
+        except Exception:
+            health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "connection_failed"}
+            overall_healthy = False
+
+        # Check MongoDB with timeout
+        try:
+            async with timeout(5.0):
+                mongo_client = get_mongo_client()
+                await mongo_client.admin.command('ping')
+            health_status["checks"]["mongodb"] = {"status": "healthy"}
+        except Exception:
+            health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "connection_failed"}
+            overall_healthy = False
+
+        # Check Redis with timeout
+        try:
+            async with timeout(5.0):
+                redis_client = get_redis_client()
+                await redis_client.ping()
+            health_status["checks"]["redis"] = {"status": "healthy"}
+        except Exception:
+            health_status["checks"]["redis"] = {"status": "unhealthy", "error": "connection_failed"}
+            overall_healthy = False
+
+        # Check Qdrant with timeout
+        try:
+            async with timeout(5.0):
+                qdrant_client = get_qdrant_client()
+                await qdrant_client.get_collections()
+            health_status["checks"]["qdrant"] = {"status": "healthy"}
+        except Exception:
+            health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "connection_failed"}
+            overall_healthy = False
+
+        if not overall_healthy:
+            health_status["status"] = "not_ready"
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content=health_status
+            )
+
+        return health_status
 
     transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

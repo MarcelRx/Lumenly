@@ -1,11 +1,13 @@
 # apps/backend/app/main.py
 import time
 import uuid
+from asyncio import timeout
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api.endpoints.ai import router as ai_router
 from app.api.endpoints.auth import router as auth_router
@@ -17,10 +19,10 @@ from app.api.endpoints.metrics import router as metrics_router
 from app.api.endpoints.users import router as users_router
 from app.api.endpoints.vectors import router as vectors_router
 from app.core.config import settings
-from app.db.mongo import close_mongo, init_mongo
-from app.db.postgres import close_postgres
-from app.db.qdrant import close_qdrant, init_qdrant
-from app.db.redis import close_redis, init_redis
+from app.db.mongo import close_mongo, get_mongo_client, init_mongo
+from app.db.postgres import AsyncSessionLocal, close_postgres
+from app.db.qdrant import close_qdrant, get_qdrant_client, init_qdrant
+from app.db.redis import close_redis, get_redis_client, init_redis
 from app.middleware.rate_limit import rate_limit_middleware
 
 
@@ -144,6 +146,23 @@ if settings.APP_ENV == "production":
             "At least one LLM API key (GROQ_API_KEY or GEMINI_API_KEY) must be set for production."
         )
 
+    # Validate that API keys are not placeholder values (config.py handles this, but double-check)
+    groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
+    gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
+
+    if "test_" in groq_key.lower() or "replace_before_production" in groq_key.lower():
+        raise ValueError(
+            "GROQ_API_KEY appears to be a test/placeholder value. Use a real production API key."
+        )
+
+    if "test_" in gemini_key.lower() or "replace_before_production" in gemini_key.lower():
+        raise ValueError(
+            "GEMINI_API_KEY appears to be a test/placeholder value. Use a real production API key."
+        )
+
+    # Run the comprehensive production secrets validation from config
+    settings._validate_production_secrets()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -201,8 +220,101 @@ app.include_router(ai_router, prefix="/v1/ai", tags=["ai"])
 app.include_router(coaching_router, prefix="/v1/coaching", tags=["coaching"])
 app.include_router(metrics_router, prefix="/v1", tags=["metrics"])
 
+@app.get("/health/live", tags=["Health"])
+async def liveness_check():
+    """
+    Liveness probe - confirms the application process is alive.
+    Does NOT depend on external databases.
+    """
+    return {
+        "status": "alive",
+        "service": "lumenly-api"
+    }
+
+
+@app.get("/health/ready", tags=["Health"])
+async def readiness_check():
+    """
+    Readiness probe - determines whether the application can safely receive traffic.
+    Verifies actual configured dependencies: PostgreSQL, MongoDB, Redis, Qdrant.
+    """
+    health_status = {
+        "status": "ready",
+        "service": "lumenly-api",
+        "checks": {}
+    }
+
+    overall_healthy = True
+
+    # Check PostgreSQL with timeout
+    try:
+        async with timeout(5.0):
+            async with AsyncSessionLocal() as session:
+                await session.execute(text("SELECT 1"))
+        health_status["checks"]["postgres"] = {"status": "healthy"}
+    except TimeoutError:
+        health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "timeout"}
+        overall_healthy = False
+    except Exception:
+        health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "connection_failed"}
+        overall_healthy = False
+
+    # Check MongoDB with timeout
+    try:
+        async with timeout(5.0):
+            mongo_client = get_mongo_client()
+            await mongo_client.admin.command('ping')
+        health_status["checks"]["mongodb"] = {"status": "healthy"}
+    except TimeoutError:
+        health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "timeout"}
+        overall_healthy = False
+    except Exception:
+        health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "connection_failed"}
+        overall_healthy = False
+
+    # Check Redis with timeout
+    try:
+        async with timeout(5.0):
+            redis_client = get_redis_client()
+            await redis_client.ping()
+        health_status["checks"]["redis"] = {"status": "healthy"}
+    except TimeoutError:
+        health_status["checks"]["redis"] = {"status": "unhealthy", "error": "timeout"}
+        overall_healthy = False
+    except Exception:
+        health_status["checks"]["redis"] = {"status": "unhealthy", "error": "connection_failed"}
+        overall_healthy = False
+
+    # Check Qdrant with timeout
+    try:
+        async with timeout(5.0):
+            qdrant_client = get_qdrant_client()
+            await qdrant_client.get_collections()
+        health_status["checks"]["qdrant"] = {"status": "healthy"}
+    except TimeoutError:
+        health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "timeout"}
+        overall_healthy = False
+    except Exception:
+        health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "connection_failed"}
+        overall_healthy = False
+
+    if not overall_healthy:
+        health_status["status"] = "not_ready"
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=health_status
+        )
+
+    return health_status
+
+
+# Keep legacy /health endpoint for backward compatibility
 @app.get("/health", tags=["Health"])
 async def health_check():
+    """
+    Legacy health check endpoint for backward compatibility.
+    Returns basic status without dependency checks.
+    """
     return {
         "status": "ok",
         "service": "lumenly-api"
