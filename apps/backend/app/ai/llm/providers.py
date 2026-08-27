@@ -327,12 +327,15 @@ class GroqProvider(LLMProviderInterface):
     async def initialize(self) -> None:
         try:
             from groq import AsyncGroq
-            self._client = AsyncGroq(
-                api_key=self.config.api_key,
-                base_url=self.config.base_url,
-                timeout=self.config.timeout,
-                max_retries=self.config.max_retries,
-            )
+            # Initialize with only supported parameters
+            # AsyncGroq only supports: api_key, base_url
+            init_params = {
+                "api_key": self.config.api_key,
+            }
+            if self.config.base_url:
+                init_params["base_url"] = self.config.base_url
+
+            self._client = AsyncGroq(**init_params)
             logger.info(f"Groq provider initialized with model: {self.config.model}")
         except ImportError:
             raise LLMProviderError("groq package not installed")

@@ -132,16 +132,24 @@ async def get_llm_provider() -> LLMProviderInterface:
         provider_name = "mock"  # Safe default for development
         api_key = "mock-key"
 
-        # Only use real provider if keys are actually set and look real (30+ chars)
+        # Only use real provider if keys are actually set, look real (30+ chars), and are not placeholders
         groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
         gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
 
-        if groq_key and len(groq_key) >= 30:
-            provider_name = "groq"
-            api_key = groq_key
-        elif gemini_key and len(gemini_key) >= 30:
+        def is_placeholder_key(key: str) -> bool:
+            if not key:
+                return False
+            key_lower = key.lower()
+            return any(pattern in key_lower for pattern in [
+                "test_", "replace_before_production", "do_not_use_in_production", "mock"
+            ])
+
+        if gemini_key and len(gemini_key) >= 30 and not is_placeholder_key(gemini_key):
             provider_name = "gemini"
             api_key = gemini_key
+        elif groq_key and len(groq_key) >= 30 and not is_placeholder_key(groq_key):
+            provider_name = "groq"
+            api_key = groq_key
 
     # Map provider to model
     model_map = {

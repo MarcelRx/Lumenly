@@ -10,7 +10,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-lumenly}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-lumenly}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-lumenly_secure_password_32chars}
       - POSTGRES_DB=${POSTGRES_DB:-lumenly}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lumenly} -d ${POSTGRES_DB:-lumenly}"]
@@ -87,6 +87,107 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-lumenly}
     restart: unless-stopped
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: lumenly-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_NAME=${APP_NAME:-Lumenly}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - SECRET_KEY=${SECRET_KEY:-3c46e615fffb5d019f5b2b67978607a17f8ac753b5f61b22af4b1c8ecd221cb9d319ae16ec0da5d1efea8d55f8968292c3fbdcdb4067b53df2bc0e9a1298384d}
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-lumenly}:${POSTGRES_PASSWORD:-lumenly_secure_password_32chars}@postgres:5432/${POSTGRES_DB:-lumenly}
+      - MONGODB_URL=mongodb://mongo:27017/lumenly?replicaSet=rs0
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-62925d227ba2ba56de1734a39b223d8e7f0e1de5519f25b8e6db70309ce6b2eddc658f364d70b63611e5c542dd43ca65152db3f3b16d7df1da8f2fc877b77e46}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - JWT_SECRET_RS256_PRIVATE=${JWT_SECRET_RS256_PRIVATE}
+      - JWT_SECRET_RS256_PUBLIC=${JWT_SECRET_RS256_PUBLIC}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - VECTOR_DIMENSION=${VECTOR_DIMENSION:-1536}
+      - DISTANCE_METRIC=${DISTANCE_METRIC:-Cosine}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - RATE_LIMIT_REDIS_PREFIX=${RATE_LIMIT_REDIS_PREFIX:-rate_limit}
+      - RATE_LIMIT_ANONYMOUS_REQUESTS=${RATE_LIMIT_ANONYMOUS_REQUESTS:-10}
+      - RATE_LIMIT_AUTHENTICATED_REQUESTS=${RATE_LIMIT_AUTHENTICATED_REQUESTS:-100}
+      - RATE_LIMIT_ADMIN_REQUESTS=${RATE_LIMIT_ADMIN_REQUESTS:-1000}
+      - RATE_LIMIT_FAIL_OPEN=${RATE_LIMIT_FAIL_OPEN:-false}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-http://localhost:3000,http://localhost:8000}
+      - ALLOW_CREDENTIALS=${ALLOW_CREDENTIALS:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  celery-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: lumenly-celery-worker
+    restart: unless-stopped
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=2 -Q celery,document_processing,memory_operations,coaching_operations
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_NAME=${APP_NAME:-Lumenly}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - SECRET_KEY=${SECRET_KEY:-3c46e615fffb5d019f5b2b67978607a17f8ac753b5f61b22af4b1c8ecd221cb9d319ae16ec0da5d1efea8d55f8968292c3fbdcdb4067b53df2bc0e9a1298384d}
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-lumenly}:${POSTGRES_PASSWORD:-lumenly_secure_password_32chars}@postgres:5432/${POSTGRES_DB:-lumenly}
+      - MONGODB_URL=mongodb://mongo:27017/lumenly?replicaSet=rs0
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-62925d227ba2ba56de1734a39b223d8e7f0e1de5519f25b8e6db70309ce6b2eddc658f364d70b63611e5c542dd43ca65152db3f3b16d7df1da8f2fc877b77e46}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - JWT_SECRET_RS256_PRIVATE=${JWT_SECRET_RS256_PRIVATE}
+      - JWT_SECRET_RS256_PUBLIC=${JWT_SECRET_RS256_PUBLIC}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - VECTOR_DIMENSION=${VECTOR_DIMENSION:-1536}
+      - DISTANCE_METRIC=${DISTANCE_METRIC:-Cosine}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
 
 volumes:
   postgres_data:

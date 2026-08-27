@@ -302,7 +302,7 @@ async def readiness_check():
         health_status["status"] = "not_ready"
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=health_status
+            detail=health_status
         )
 
     return health_status

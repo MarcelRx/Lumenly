@@ -159,8 +159,8 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
 
     Enforces rate limits based on user role and returns 429 if exceeded.
     """
-    # Skip rate limiting for health checks
-    if request.url.path == "/health":
+    # Skip rate limiting for health checks and metrics
+    if request.url.path in ["/health", "/health/live", "/health/ready", "/api/v1/metrics", "/metrics"]:
         return await call_next(request)
 
     # Get client identifier and role

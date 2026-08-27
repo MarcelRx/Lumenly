@@ -34,13 +34,13 @@ mdurl==0.1.2
 mmh3==5.2.1
 motor==3.7.1
 mpmath==1.3.0
-numpy==2.5.0
+numpy==2.4.6
 onnxruntime==1.23.2
 packaging==26.2
 passlib==1.7.4
 pillow==12.2.0
 portalocker==3.2.0
-protobuf==7.35.1
+protobuf>=3.20.2,<6.0.0
 py_rust_stemmers==0.1.8
 pydantic==2.13.4
 pydantic-settings==2.14.2
@@ -75,3 +75,5 @@ asyncpg==0.30.0
 celery==5.4.0
 pytest==8.3.4
 pytest-asyncio==0.25.3
+groq==0.11.0
+google-generativeai==0.8.3

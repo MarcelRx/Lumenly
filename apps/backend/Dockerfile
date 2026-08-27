@@ -1,51 +1,25 @@
-# Multi-stage production Dockerfile for Lumenly Backend
-# Stage 1: Builder
-FROM python:3.11-slim as builder
+# Production Dockerfile for Lumenly Backend
+FROM python:3.11-slim
 
 # Set build arguments
-ARG APP_VERSION=0.1.0
-ARG APP_NAME=lumenly-backend
-
-# Set environment variables for build
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create app directory
-WORKDIR /app
-
-# Copy requirements first for better caching
-COPY requirements.txt .
-
-# Install Python dependencies to a temporary location
-RUN pip install --user --prefix=/install requirements.txt
-
-# Stage 2: Runtime
-FROM python:3.11-slim as runtime
-
-# Set runtime arguments
 ARG APP_VERSION=0.1.0
 ARG APP_NAME=lumenly-backend
 ARG APP_USER=lumenly
 ARG APP_UID=1000
 ARG APP_GID=1000
 
-# Set environment variables for runtime
+# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     APP_VERSION=${APP_VERSION} \
     APP_NAME=${APP_NAME} \
-    PATH=/install/bin:$PATH
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install runtime dependencies only
+# Install build and runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -53,12 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -g ${APP_GID} ${APP_USER} && \
     useradd -u ${APP_UID} -g ${APP_GID} -m -s /bin/bash ${APP_USER}
 
-# Copy installed Python packages from builder
-COPY --from=builder /install /install
-
-# Create app directory with correct permissions
+# Create app directory
 WORKDIR /app
-RUN chown -R ${APP_USER}:${APP_USER} /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY --chown=${APP_USER}:${APP_USER} app ./app

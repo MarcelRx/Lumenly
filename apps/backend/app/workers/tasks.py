@@ -162,12 +162,19 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             logger.error(f"MongoDB connection failed: {e}")
             raise TransientDatabaseError(f"MongoDB connection failed: {e}")
 
-        # Explicitly get the database name from the URL
-        # MongoDB URL format: mongodb://host:port/database
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        # For production, we use 'lumenly' database
+        db_name = 'lumenly'
+        logger.info(f"Using MongoDB database: {db_name}")
 
-        db = mongo_client[db_name]
-        collection = db["user_documents"]
+        # Apply UUID codec options for proper UUID handling
+        from bson.binary import UuidRepresentation
+        from bson.codec_options import CodecOptions
+        codec_options = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
+        db = mongo_client.get_database(db_name, codec_options=codec_options)
+        collection = db["UserDocument"]  # Beanie uses capitalized collection names
+
+        # Log collection info for debugging
+        logger.info(f"Collection: {collection.name}, Document count: {collection.count_documents({})}")
 
         # Initialize Qdrant sync client
         try:
@@ -235,7 +242,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
 
         # Retrieve the document
         try:
+            logger.info(f"Attempting to find document with ObjectId: {document_id}")
             document = collection.find_one({"_id": ObjectId(document_id)})
+            logger.info(f"Document query result: {document is not None}")
         except (ConnectionFailure, ServerSelectionTimeoutError, OperationFailure) as e:
             logger.error(f"MongoDB query failed: {e}")
             raise TransientDatabaseError(f"MongoDB query failed: {e}")
@@ -248,14 +257,48 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             raise DocumentNotFoundError(f"Document {document_id} not found")
 
         # Validate user ownership for multi-tenant isolation
-        document_user_id = str(document.get("user_id"))
+        # MongoDB stores UUIDs as Binary, need to convert properly
+        from bson.binary import Binary
+        document_user_id_raw = document.get("user_id")
+
+        logger.info(f"Raw user_id type: {type(document_user_id_raw)}, value: {document_user_id_raw}")
+
+        # Handle different UUID representations in MongoDB
+        if isinstance(document_user_id_raw, Binary):
+            # BSON Binary UUID - convert to UUID then to string
+            # MongoDB stores UUIDs as Binary with subtype 4 (UUID standard)
+            logger.info(f"Detected Binary UUID, bytes: {document_user_id_raw}")
+            try:
+                document_user_id = str(uuid.UUID(bytes=document_user_id_raw))
+            except Exception as e:
+                logger.warning(f"Failed to convert Binary to UUID: {e}")
+                # Try with standard UUID representation
+                document_user_id = str(uuid.UUID(bytes=document_user_id_raw.bytes))
+        elif isinstance(document_user_id_raw, bytes):
+            # Raw bytes - try to convert as UUID
+            logger.info("Detected raw bytes, converting to UUID")
+            try:
+                document_user_id = str(uuid.UUID(bytes=document_user_id_raw))
+            except Exception as e:
+                # If conversion fails, use string representation
+                logger.warning(f"Failed to convert bytes to UUID: {e}")
+                document_user_id = str(document_user_id_raw)
+        elif isinstance(document_user_id_raw, uuid.UUID):
+            # UUID object
+            document_user_id = str(document_user_id_raw)
+        else:
+            # Already a string
+            document_user_id = str(document_user_id_raw)
+
+        logger.info(f"User ID validation - requested: {user_id}, document owner: {document_user_id}")
+
         if document_user_id != user_id:
             logger.error(
                 f"User {user_id} attempted to access document {document_id} owned by {document_user_id}",
                 extra={
-                    "document_id": document_id,
-                    "requested_user_id": user_id,
-                    "document_user_id": document_user_id,
+                    "doc_id": document_id,
+                    "req_user_id": user_id,
+                    "doc_user_id": document_user_id,
                     "attempt": retry_count + 1,
                 }
             )
@@ -278,7 +321,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             extra={
                 "document_id": document_id,
                 "user_id": str(document.get('user_id')),
-                "filename": document.get('filename'),
+                "doc_filename": document.get('filename'),
                 "content_length": len(document.get('content', '')),
                 "attempt": retry_count + 1,
             }
