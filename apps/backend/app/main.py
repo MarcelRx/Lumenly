@@ -19,11 +19,22 @@ from app.api.endpoints.metrics import router as metrics_router
 from app.api.endpoints.users import router as users_router
 from app.api.endpoints.vectors import router as vectors_router
 from app.core.config import settings
+from app.core.logging_config import (
+    get_logger,
+    get_request_id,
+    set_request_id,
+    setup_logging,
+    validate_request_id,
+)
 from app.db.mongo import close_mongo, get_mongo_client, init_mongo
 from app.db.postgres import AsyncSessionLocal, close_postgres
 from app.db.qdrant import close_qdrant, get_qdrant_client, init_qdrant
 from app.db.redis import close_redis, get_redis_client, init_redis
 from app.middleware.rate_limit import rate_limit_middleware
+
+# Setup logging based on environment
+setup_logging(settings.APP_ENV)
+logger = get_logger(__name__)
 
 
 def parse_cors_origins(origins_string: str) -> list[str]:
@@ -174,26 +185,105 @@ app.add_middleware(
 # Rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
 
-# میان‌افزار مدیریت هویت درخواست (Request-ID) و زمان‌سنجی
+# Request correlation middleware with validation and context propagation
 @app.middleware("http")
 async def add_process_time_and_uuid_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    """
+    Enhanced request correlation middleware.
+
+    - Validates incoming X-Request-ID header
+    - Generates UUID v4 if missing or invalid
+    - Propagates request ID via contextvars for async-safe logging
+    - Adds timing information
+    """
+    # Get or generate request ID with validation
+    incoming_request_id = request.headers.get("X-Request-ID")
+
+    if incoming_request_id and validate_request_id(incoming_request_id):
+        request_id = incoming_request_id
+    else:
+        # Generate new UUID if header missing or invalid
+        request_id = str(uuid.uuid4())
+        if incoming_request_id:
+            logger.warning(
+                f"Rejected invalid request ID: {incoming_request_id[:50]}... (generated new ID)"
+            )
+
     start_time = time.time()
 
-    # ذخیره در context ناهمگام برای لاگرها
+    # Store in request.state for existing code compatibility
     request.state.request_id = request_id
+
+    # Store in contextvars for async-safe logger access
+    set_request_id(request_id)
+
+    # Log request start (skip health probes to reduce noise)
+    if request.url.path not in ["/health", "/health/live", "/health/ready", "/metrics"]:
+        logger.info(
+            "HTTP request started",
+            extra={
+                "event": "http_request_start",
+                "method": request.method,
+                "path": request.url.path,
+                "client_ip": request.client.host if request.client else "unknown"
+            }
+        )
 
     response = await call_next(request)
 
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     response.headers["X-Request-ID"] = request_id
+
+    # Log request completion (skip health probes to reduce noise)
+    if request.url.path not in ["/health", "/health/live", "/health/ready", "/metrics"]:
+        extra_data = {
+            "event": "http_request_end",
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round(process_time * 1000, 2)
+        }
+
+        if response.status_code < 400:
+            logger.info("HTTP request completed", extra=extra_data)
+        elif response.status_code < 500:
+            logger.warning("HTTP request completed with warning", extra=extra_data)
+        else:
+            logger.error("HTTP request completed with error", extra=extra_data)
+
     return response
 
-# مدیریت خطاهای پیش‌بینی نشده سراسری طبق قرارداد api_contracts.md
+# Global exception handler with enhanced observability
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    request_id = getattr(request.state, "request_id", "unknown")
+    """
+    Enhanced global exception handler with proper observability.
+
+    - Logs exceptions server-side with full context
+    - Includes request ID from contextvars
+    - Returns safe error messages to clients
+    - Only exposes stack traces in development
+    """
+    # Get request ID from contextvars (fallback to request.state)
+    request_id = get_request_id() or getattr(request.state, "request_id", "unknown")
+
+    # Log the exception server-side with full context
+    logger.error(
+        "Unhandled exception",
+        exc_info=True,
+        extra={
+            "event": "exception",
+            "request_id": request_id,
+            "error_type": type(exc).__name__,
+            "error_message": str(exc),
+            "method": request.method,
+            "path": request.url.path,
+            "error_category": "unexpected_error"
+        }
+    )
+
+    # Return safe error response to client
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -201,7 +291,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "An unexpected error occurred on the server.",
-                "details": str(exc) if settings.ENVIRONMENT == "development" else None
+                "details": str(exc) if settings.APP_ENV == "development" else None
             },
             "meta": {
                 "requestId": request_id,
