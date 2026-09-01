@@ -1,0 +1,99 @@
+groups:
+  - name: dependency_health
+    interval: 30s
+    rules:
+      # PostgreSQL Unavailable - P0 CRITICAL
+      - alert: PostgreSQLUnavailable
+        expr: database_health_status{database="postgresql"} == 0
+        for: 2m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "PostgreSQL database unavailable"
+          description: "PostgreSQL database has been unavailable for more than 2 minutes."
+          runbook: "docs/runbooks/postgres-unavailable.md"
+
+      # MongoDB Unavailable - P0 CRITICAL
+      - alert: MongoDBUnavailable
+        expr: database_health_status{database="mongodb"} == 0
+        for: 2m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "MongoDB database unavailable"
+          description: "MongoDB database has been unavailable for more than 2 minutes."
+          runbook: "docs/runbooks/mongodb-unavailable.md"
+
+      # Redis Unavailable - P0 CRITICAL
+      - alert: RedisUnavailable
+        expr: database_health_status{database="redis"} == 0
+        for: 2m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "Redis cache unavailable"
+          description: "Redis cache has been unavailable for more than 2 minutes."
+          runbook: "docs/runbooks/redis-unavailable.md"
+
+      # Qdrant Unavailable - P1 HIGH
+      - alert: QdrantUnavailable
+        expr: database_health_status{database="qdrant"} == 0
+        for: 2m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "Qdrant vector database unavailable"
+          description: "Qdrant vector database has been unavailable for more than 2 minutes."
+          runbook: "docs/runbooks/qdrant-unavailable.md"
+
+      # High PostgreSQL Operation Failures - P1 HIGH
+      - alert: HighPostgreSQLFailures
+        expr: rate(database_operation_failures_total{database="postgresql"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High PostgreSQL operation failure rate"
+          description: "PostgreSQL operation failure rate is above 10 per minute for more than 5 minutes."
+          runbook: "docs/runbooks/postgres-unavailable.md"
+
+      # High MongoDB Operation Failures - P1 HIGH
+      - alert: HighMongoDBFailures
+        expr: rate(database_operation_failures_total{database="mongodb"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High MongoDB operation failure rate"
+          description: "MongoDB operation failure rate is above 10 per minute for more than 5 minutes."
+          runbook: "docs/runbooks/mongodb-unavailable.md"
+
+      # High Redis Operation Failures - P1 HIGH
+      - alert: HighRedisFailures
+        expr: rate(database_operation_failures_total{database="redis"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High Redis operation failure rate"
+          description: "Redis operation failure rate is above 10 per minute for more than 5 minutes."
+          runbook: "docs/runbooks/redis-unavailable.md"
+
+      # High Qdrant Operation Failures - P1 HIGH
+      - alert: HighQdrantFailures
+        expr: rate(database_operation_failures_total{database="qdrant"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High Qdrant operation failure rate"
+          description: "Qdrant operation failure rate is above 10 per minute for more than 5 minutes."
+          runbook: "docs/runbooks/qdrant-unavailable.md"

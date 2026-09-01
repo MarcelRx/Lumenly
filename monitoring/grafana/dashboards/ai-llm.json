@@ -1,0 +1,83 @@
+{
+  "title": "Lumenly AI / LLM",
+  "uid": "lumenly-ai-llm",
+  "tags": ["lumenly", "ai", "llm"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "LLM Request Volume",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_requests_total[5m])) by (provider)",
+          "legendFormat": "{{provider}}"
+        }
+      ]
+    },
+    {
+      "title": "LLM Failure Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_request_failures_total[5m])) by (provider) / sum(rate(llm_requests_total[5m])) by (provider)",
+          "legendFormat": "{{provider}}"
+        }
+      ]
+    },
+    {
+      "title": "LLM P95 Latency",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le, provider))",
+          "legendFormat": "{{provider}}"
+        }
+      ]
+    },
+    {
+      "title": "LLM Request Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_request_failures_total[5m])) by (provider, failure_type)",
+          "legendFormat": "{{provider}} - {{failure_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Token Consumption",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_input_tokens_total[5m])) by (provider)",
+          "legendFormat": "{{provider}} - Input"
+        },
+        {
+          "expr": "sum(rate(llm_output_tokens_total[5m])) by (provider)",
+          "legendFormat": "{{provider}} - Output"
+        }
+      ]
+    },
+    {
+      "title": "LLM Requests by Model",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_requests_total[5m])) by (provider, model)",
+          "legendFormat": "{{provider}} - {{model}}"
+        }
+      ]
+    },
+    {
+      "title": "MockLLM Detection",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(llm_requests_total{provider=\"mock\"})",
+          "legendFormat": "MockLLM Requests"
+        }
+      ]
+    }
+  ]
+}

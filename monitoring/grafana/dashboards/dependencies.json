@@ -1,0 +1,99 @@
+{
+  "title": "Lumenly Dependencies",
+  "uid": "lumenly-dependencies",
+  "tags": ["lumenly", "dependencies"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "PostgreSQL Health",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "database_health_status{database=\"postgresql\"}",
+          "legendFormat": "PostgreSQL"
+        }
+      ]
+    },
+    {
+      "title": "MongoDB Health",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "database_health_status{database=\"mongodb\"}",
+          "legendFormat": "MongoDB"
+        }
+      ]
+    },
+    {
+      "title": "Redis Health",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "database_health_status{database=\"redis\"}",
+          "legendFormat": "Redis"
+        }
+      ]
+    },
+    {
+      "title": "Qdrant Health",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "database_health_status{database=\"qdrant\"}",
+          "legendFormat": "Qdrant"
+        }
+      ]
+    },
+    {
+      "title": "Database Operation Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(database_operation_failures_total[5m])) by (database)",
+          "legendFormat": "{{database}}"
+        }
+      ]
+    },
+    {
+      "title": "PostgreSQL Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(database_operation_failures_total{database=\"postgresql\"}[5m])",
+          "legendFormat": "PostgreSQL"
+        }
+      ]
+    },
+    {
+      "title": "MongoDB Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(database_operation_failures_total{database=\"mongodb\"}[5m])",
+          "legendFormat": "MongoDB"
+        }
+      ]
+    },
+    {
+      "title": "Redis Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(database_operation_failures_total{database=\"redis\"}[5m])",
+          "legendFormat": "Redis"
+        }
+      ]
+    },
+    {
+      "title": "Qdrant Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(database_operation_failures_total{database=\"qdrant\"}[5m])",
+          "legendFormat": "Qdrant"
+        }
+      ]
+    }
+  ]
+}

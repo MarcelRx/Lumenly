@@ -1,0 +1,91 @@
+groups:
+  - name: llm_health
+    interval: 30s
+    rules:
+      # High LLM Failure Rate - P1 HIGH
+      - alert: HighLLMFailureRate
+        expr: |
+          (
+            sum(rate(llm_request_failures_total[5m])) by (provider)
+            /
+            sum(rate(llm_requests_total[5m])) by (provider)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High LLM request failure rate"
+          description: "LLM request failure rate is above 10% for more than 5 minutes."
+          runbook: "docs/runbooks/llm-provider-failure.md"
+
+      # LLM Provider Unavailable - P0 CRITICAL
+      - alert: LLMProviderUnavailable
+        expr: |
+          (
+            sum(rate(llm_requests_total{provider="groq"}[5m])) == 0
+            and
+            sum(rate(llm_requests_total{provider="gemini"}[5m])) == 0
+          )
+        for: 5m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "All LLM providers unavailable"
+          description: "No LLM requests have been successful in the last 5 minutes. All providers may be unavailable."
+          runbook: "docs/runbooks/llm-provider-failure.md"
+
+      # High LLM Latency - P2 WARNING
+      - alert: HighLLMLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(llm_request_duration_seconds_bucket[5m])) by (le, provider)
+          ) > 10
+        for: 5m
+        labels:
+          severity: P2
+          team: backend
+        annotations:
+          summary: "High LLM request latency"
+          description: "LLM request P95 latency is above 10 seconds for more than 5 minutes."
+          runbook: "docs/runbooks/llm-provider-failure.md"
+
+      # Elevated LLM Latency - P3 INFORMATIONAL
+      - alert: ElevatedLLMLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(llm_request_duration_seconds_bucket[5m])) by (le, provider)
+          ) > 5
+        for: 10m
+        labels:
+          severity: P3
+          team: backend
+        annotations:
+          summary: "Elevated LLM request latency"
+          description: "LLM request P95 latency is above 5 seconds for more than 10 minutes."
+          runbook: "docs/runbooks/llm-provider-failure.md"
+
+      # MockLLM in Production - P0 CRITICAL
+      - alert: MockLLMInProduction
+        expr: llm_requests_total{provider="mock"} > 0
+        for: 1m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "MockLLM detected in production"
+          description: "MockLLM provider is being used in production. This should never happen."
+          runbook: "docs/runbooks/llm-provider-failure.md"
+
+      # No LLM Request Activity - P2 WARNING
+      - alert: NoLLMRequestActivity
+        expr: sum(rate(llm_requests_total[5m])) == 0
+        for: 30m
+        labels:
+          severity: P2
+          team: backend
+        annotations:
+          summary: "No LLM request activity"
+          description: "No LLM requests have been made in the last 30 minutes."
+          runbook: "docs/runbooks/llm-provider-failure.md"

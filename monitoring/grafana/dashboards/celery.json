@@ -1,0 +1,73 @@
+{
+  "title": "Lumenly Celery",
+  "uid": "lumenly-celery",
+  "tags": ["lumenly", "celery"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "Task Throughput",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(celery_tasks_total{status=\"completed\"}[5m]))",
+          "legendFormat": "Completed"
+        },
+        {
+          "expr": "sum(rate(celery_tasks_total{status=\"failed\"}[5m]))",
+          "legendFormat": "Failed"
+        }
+      ]
+    },
+    {
+      "title": "Task Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(celery_task_failures_total[5m])) by (failure_type)",
+          "legendFormat": "{{failure_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Task Retries",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(celery_task_retries_total[5m]))",
+          "legendFormat": "Retries"
+        }
+      ]
+    },
+    {
+      "title": "P95 Task Duration",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(celery_task_duration_seconds_bucket[5m])) by (le, task))",
+          "legendFormat": "{{task}}"
+        }
+      ]
+    },
+    {
+      "title": "Task Duration by Task",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(celery_task_duration_seconds_bucket[5m])) by (le, task))",
+          "legendFormat": "{{task}}"
+        }
+      ]
+    },
+    {
+      "title": "Task Failure Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(celery_task_failures_total[5m])) / sum(rate(celery_tasks_total[5m]))",
+          "legendFormat": "Failure Rate"
+        }
+      ]
+    }
+  ]
+}

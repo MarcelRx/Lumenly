@@ -1,0 +1,89 @@
+groups:
+  - name: backend_availability
+    interval: 30s
+    rules:
+      # Backend Down - P0 CRITICAL
+      - alert: BackendDown
+        expr: up{job="lumenly-backend"} == 0
+        for: 1m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "Lumenly backend is down"
+          description: "The Lumenly backend service has been down for more than 1 minute."
+          runbook: "docs/runbooks/backend-down.md"
+
+      # Readiness Failure - P0 CRITICAL
+      - alert: ReadinessFailure
+        expr: database_health_status{database="postgresql"} == 0 or database_health_status{database="mongodb"} == 0 or database_health_status{database="redis"} == 0 or database_health_status{database="qdrant"} == 0
+        for: 2m
+        labels:
+          severity: P0
+          team: backend
+        annotations:
+          summary: "Lumenly backend readiness check failing"
+          description: "The Lumenly backend readiness check has been failing for more than 2 minutes due to dependency issues."
+          runbook: "docs/runbooks/backend-down.md"
+
+      # High HTTP 5xx Rate - P1 HIGH
+      - alert: HighHTTP5xxRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m])) by (instance)
+            /
+            sum(rate(http_requests_total[5m])) by (instance)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High HTTP 5xx error rate detected"
+          description: "HTTP 5xx error rate is above 5% for more than 5 minutes."
+          runbook: "docs/runbooks/high-error-rate.md"
+
+      # High HTTP Latency P95 - P1 HIGH
+      - alert: HighHTTPLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: P1
+          team: backend
+        annotations:
+          summary: "High HTTP request latency (P95) detected"
+          description: "HTTP request latency P95 is above 1 second for more than 5 minutes."
+          runbook: "docs/runbooks/high-latency.md"
+
+      # High HTTP Latency P99 - P2 WARNING
+      - alert: HighHTTPLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance)
+          ) > 5.0
+        for: 10m
+        labels:
+          severity: P2
+          team: backend
+        annotations:
+          summary: "High HTTP request latency (P99) detected"
+          description: "HTTP request latency P99 is above 5 seconds for more than 10 minutes."
+          runbook: "docs/runbooks/high-latency.md"
+
+      # Elevated HTTP Latency P95 - P2 WARNING
+      - alert: ElevatedHTTPLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: P2
+          team: backend
+        annotations:
+          summary: "Elevated HTTP request latency (P95) detected"
+          description: "HTTP request latency P95 is above 500ms for more than 10 minutes."
+          runbook: "docs/runbooks/high-latency.md"

@@ -1,0 +1,87 @@
+groups:
+  - name: security_events
+    interval: 30s
+    rules:
+      # High Authentication Failure Rate - P1 HIGH
+      - alert: HighAuthenticationFailureRate
+        expr: rate(auth_login_attempts_total{result=~"invalid_credentials|inactive_user"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: P1
+          team: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate is above 10 per minute for more than 5 minutes. Possible brute force attack."
+          runbook: "docs/runbooks/security-anomaly.md"
+
+      # Elevated Authentication Failure Rate - P2 WARNING
+      - alert: ElevatedAuthenticationFailureRate
+        expr: rate(auth_login_attempts_total{result=~"invalid_credentials|inactive_user"}[5m]) > 5
+        for: 10m
+        labels:
+          severity: P2
+          team: security
+        annotations:
+          summary: "Elevated authentication failure rate"
+          description: "Authentication failure rate is above 5 per minute for more than 10 minutes."
+          runbook: "docs/runbooks/security-anomaly.md"
+
+      # High Authorization Failure Rate - P1 HIGH
+      - alert: HighAuthorizationFailureRate
+        expr: rate(security_authorization_failures_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: P1
+          team: security
+        annotations:
+          summary: "High authorization failure rate"
+          description: "Authorization failure rate is above 10 per minute for more than 5 minutes. Possible privilege escalation attempt."
+          runbook: "docs/runbooks/security-anomaly.md"
+
+      # Cross-Tenant Access Attempts - P0 CRITICAL
+      - alert: CrossTenantAccessAttempts
+        expr: rate(security_cross_tenant_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: P0
+          team: security
+        annotations:
+          summary: "Cross-tenant access attempts detected"
+          description: "Cross-tenant access attempts detected. Possible data exfiltration attempt."
+          runbook: "docs/runbooks/security-anomaly.md"
+
+      # High Rate Limit Violations - P1 HIGH
+      - alert: HighRateLimitViolations
+        expr: rate(security_rate_limit_exceeded_total[5m]) > 50
+        for: 5m
+        labels:
+          severity: P1
+          team: security
+        annotations:
+          summary: "High rate limit violation rate"
+          description: "Rate limit violation rate is above 50 per minute for more than 5 minutes. Possible DDoS attack."
+          runbook: "docs/runbooks/security-anomaly.md"
+
+      # Elevated Rate Limit Violations - P2 WARNING
+      - alert: ElevatedRateLimitViolations
+        expr: rate(security_rate_limit_exceeded_total[5m]) > 20
+        for: 10m
+        labels:
+          severity: P2
+          team: security
+        annotations:
+          summary: "Elevated rate limit violation rate"
+          description: "Rate limit violation rate is above 20 per minute for more than 10 minutes."
+          runbook: "docs/runbooks/security-anomaly.md"
+
+      # High General Rate Limit Violations - P2 WARNING
+      - alert: HighGeneralRateLimitViolations
+        expr: rate(rate_limit_violations_total[5m]) > 50
+        for: 5m
+        labels:
+          severity: P2
+          team: security
+        annotations:
+          summary: "High general rate limit violation rate"
+          description: "General rate limit violation rate is above 50 per minute for more than 5 minutes."
+          runbook: "docs/runbooks/security-anomaly.md"

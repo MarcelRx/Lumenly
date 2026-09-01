@@ -1,0 +1,172 @@
+global:
+  resolve_timeout: 5m
+
+# Route configuration - how alerts are routed to receivers
+route:
+  group_by: ["alertname", "severity", "team"]
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: "default"
+
+  routes:
+    # P0 Critical alerts - immediate notification
+    - match:
+        severity: P0
+      receiver: "critical"
+      group_wait: 0s
+      repeat_interval: 5m
+
+    # P1 High alerts - immediate notification
+    - match:
+        severity: P1
+      receiver: "high-priority"
+      group_wait: 30s
+      repeat_interval: 15m
+
+    # P2 Warning alerts - delayed notification
+    - match:
+        severity: P2
+      receiver: "warning"
+      group_wait: 5m
+      repeat_interval: 1h
+
+    # P3 Informational alerts - daily digest
+    - match:
+        severity: P3
+      receiver: "informational"
+      group_wait: 10m
+      repeat_interval: 24h
+
+    # Security alerts - immediate notification
+    - match:
+        team: security
+      receiver: "security"
+      group_wait: 0s
+      repeat_interval: 10m
+
+# Receivers - where notifications are sent
+receivers:
+  - name: "default"
+    # Default receiver - no notifications (for testing)
+    # In production, configure email or Slack here
+
+  - name: "critical"
+    # Slack notifications disabled for runtime verification
+    # slack_configs:
+    #   - channel: "#lumenly-critical"
+    #     send_resolved: true
+    #     title: "🚨 CRITICAL: {{ .GroupLabels.alertname }}"
+    #     title_link: "https://grafana.example.com/d/..."
+    #     text: |
+    #       {{ range .Alerts }}
+    #       *Alert:* {{ .Labels.alertname }}
+    #       *Severity:* {{ .Labels.severity }}
+    #       *Summary:* {{ .Annotations.summary }}
+    #       *Description:* {{ .Annotations.description }}
+    #       *Runbook:* {{ .Annotations.runbook }}
+    #       *Status:* {{ .Status }}
+    #       {{ end }}
+    #     # Set via environment variable: SLACK_WEBHOOK_URL_CRITICAL
+    #     # api_url: '${SLACK_WEBHOOK_URL_CRITICAL}'
+
+  - name: "high-priority"
+    # Slack notifications disabled for runtime verification
+    # slack_configs:
+    #   - channel: "#lumenly-alerts"
+    #     send_resolved: true
+    #     title: "⚠️ HIGH: {{ .GroupLabels.alertname }}"
+    #     text: |
+    #       {{ range .Alerts }}
+    #       *Alert:* {{ .Labels.alertname }}
+    #       *Severity:* {{ .Labels.severity }}
+    #       *Summary:* {{ .Annotations.summary }}
+    #       *Description:* {{ .Annotations.description }}
+    #       *Runbook:* {{ .Annotations.runbook }}
+    #       *Status:* {{ .Status }}
+    #       {{ end }}
+    #     # Set via environment variable: SLACK_WEBHOOK_URL_HIGH
+    #     # api_url: '${SLACK_WEBHOOK_URL_HIGH}'
+
+  - name: "warning"
+    # Slack notifications disabled for runtime verification
+    # slack_configs:
+    #   - channel: "#lumenly-warnings"
+    #     send_resolved: true
+    #     title: "⚡ WARNING: {{ .GroupLabels.alertname }}"
+    #     text: |
+    #       {{ range .Alerts }}
+    #       *Alert:* {{ .Labels.alertname }}
+    #       *Severity:* {{ .Labels.severity }}
+    #       *Summary:* {{ .Annotations.summary }}
+    #       *Description:* {{ .Annotations.description }}
+    #       *Runbook:* {{ .Annotations.runbook }}
+    #       *Status:* {{ .Status }}
+    #       {{ end }}
+    #     # Set via environment variable: SLACK_WEBHOOK_URL_WARNING
+    #     # api_url: '${SLACK_WEBHOOK_URL_WARNING}'
+
+  - name: "informational"
+    # Slack notifications disabled for runtime verification
+    # slack_configs:
+    #   - channel: "#lumenly-info"
+    #     send_resolved: true
+    #     title: "ℹ️ INFO: {{ .GroupLabels.alertname }}"
+    #     text: |
+    #       {{ range .Alerts }}
+    #       *Alert:* {{ .Labels.alertname }}
+    #       *Severity:* {{ .Labels.severity }}
+    #       *Summary:* {{ .Annotations.summary }}
+    #       *Description:* {{ .Annotations.description }}
+    #       {{ end }}
+    #     # Set via environment variable: SLACK_WEBHOOK_URL_INFO
+    #     # api_url: '${SLACK_WEBHOOK_URL_INFO}'
+
+  - name: "security"
+    # Slack notifications disabled for runtime verification
+    # slack_configs:
+    #   - channel: "#lumenly-security"
+    #     send_resolved: true
+    #     title: "🔒 SECURITY: {{ .GroupLabels.alertname }}"
+    #     text: |
+    #       {{ range .Alerts }}
+    #       *Alert:* {{ .Labels.alertname }}
+    #       *Severity:* {{ .Labels.severity }}
+    #       *Summary:* {{ .Annotations.summary }}
+    #       *Description:* {{ .Annotations.description }}
+    #       *Runbook:* {{ .Annotations.runbook }}
+    #       *Status:* {{ .Status }}
+    #       {{ end }}
+    #     # Set via environment variable: SLACK_WEBHOOK_URL_SECURITY
+    #     # api_url: '${SLACK_WEBHOOK_URL_SECURITY}'
+
+# Inhibition rules - suppress certain alerts when others are firing
+inhibit_rules:
+  # Inhibit dependency alerts when backend is down
+  - source_match:
+      alertname: "BackendDown"
+    target_match_re:
+      alertname: "(PostgreSQLUnavailable|MongoDBUnavailable|RedisUnavailable|QdrantUnavailable)"
+      severity: "(P0|P1)"
+    equal: ["instance"]
+
+  # Inhibit high latency alerts when backend is down
+  - source_match:
+      alertname: "BackendDown"
+    target_match_re:
+      alertname: "(HighHTTPLatencyP95|HighHTTPLatencyP99|ElevatedHTTPLatencyP95)"
+    equal: ["instance"]
+
+  # Inhibit Celery alerts when backend is down
+  - source_match:
+      alertname: "BackendDown"
+    target_match_re:
+      alertname: "(HighCeleryTaskFailureRate|CeleryTasksNotCompleting)"
+    equal: ["instance"]
+
+  # Inhibit P2 latency alerts when P1 latency is firing
+  - source_match:
+      alertname: "HighHTTPLatencyP95"
+    target_match:
+      alertname: "ElevatedHTTPLatencyP95"
+    equal: ["instance"]

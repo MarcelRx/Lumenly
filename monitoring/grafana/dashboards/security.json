@@ -1,0 +1,93 @@
+{
+  "title": "Lumenly Security",
+  "uid": "lumenly-security",
+  "tags": ["lumenly", "security"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "Authentication Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(auth_login_attempts_total{result=~\"invalid_credentials|inactive_user\"}[5m]))",
+          "legendFormat": "Auth Failures"
+        },
+        {
+          "expr": "sum(rate(auth_login_attempts_total{result=\"success\"}[5m]))",
+          "legendFormat": "Auth Success"
+        }
+      ]
+    },
+    {
+      "title": "Authorization Failures",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(security_authorization_failures_total[5m])) by (resource_type)",
+          "legendFormat": "{{resource_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Cross-Tenant Access Attempts",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(security_cross_tenant_attempts_total[5m])) by (resource_type)",
+          "legendFormat": "{{resource_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Rate Limit Violations",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(security_rate_limit_exceeded_total[5m])) by (user_role)",
+          "legendFormat": "{{user_role}}"
+        }
+      ]
+    },
+    {
+      "title": "General Rate Limit Violations",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(rate_limit_violations_total[5m])) by (limit_type)",
+          "legendFormat": "{{limit_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Authentication Attempts by Result",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(auth_login_attempts_total[5m])) by (result)",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "title": "Token Refresh Attempts",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(auth_token_refresh_total[5m])) by (result)",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "title": "Registration Attempts",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(auth_registration_attempts_total[5m])) by (result)",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    }
+  ]
+}

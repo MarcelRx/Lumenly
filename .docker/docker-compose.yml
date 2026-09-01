@@ -66,18 +66,45 @@ services:
       - qdrant_data:/qdrant/storage
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.48.0
     container_name: lumenly-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ../prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /Users/mohsenrassam/Desktop/Lumenly/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: lumenly-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.2.0
     container_name: lumenly-grafana
     depends_on:
       - prometheus
@@ -86,11 +113,22 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-lumenly}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    volumes:
+      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   backend:
     build:
-      context: apps/backend
+      context: ../apps/backend
       dockerfile: Dockerfile
     container_name: lumenly-backend
     restart: unless-stopped
@@ -145,7 +183,7 @@ services:
 
   celery-worker:
     build:
-      context: apps/backend
+      context: ../apps/backend
       dockerfile: Dockerfile
     container_name: lumenly-celery-worker
     restart: unless-stopped
@@ -195,3 +233,6 @@ volumes:
   mongo_data:
   redis_data:
   qdrant_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
