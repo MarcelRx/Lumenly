@@ -11,6 +11,12 @@ from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, PyJWTError
 
 from app.ai.tools.registry import get_tool_registry
 from app.api.deps import get_current_active_user
+from app.core.metrics import (
+    rate_limit_violations_total,
+    websocket_active_connections,
+    websocket_connections_total,
+    websocket_disconnects_total,
+)
 from app.core.security import decode_access_token
 from app.db.redis import get_redis_client
 from app.middleware.rate_limit import RateLimiter
@@ -79,6 +85,11 @@ async def check_websocket_rate_limit(
         current_count = await redis_client.zcard(key)
 
         if current_count >= limit:
+            # Track WebSocket rate limit violations
+            rate_limit_violations_total.labels(
+                limit_type=f"websocket_{limit_type}",
+                user_role="authenticated"
+            ).inc()
             return False, f"Rate limit exceeded for {limit_type}"
 
         # Add current request
@@ -157,15 +168,28 @@ class ConnectionManager:
 
     async def connect(self, session_id: uuid.UUID, websocket: WebSocket):
         """Accept a WebSocket connection for a coaching session."""
-        await websocket.accept()
-        self.active_connections[session_id] = websocket
-        logger.info(f"WebSocket connected for session {session_id}")
+        try:
+            await websocket.accept()
+            self.active_connections[session_id] = websocket
+            logger.info(f"WebSocket connected for session {session_id}")
 
-    def disconnect(self, session_id: uuid.UUID):
+            # Track connection metrics
+            websocket_connections_total.labels(result="success").inc()
+            websocket_active_connections.inc()
+        except Exception as e:
+            logger.error(f"WebSocket connection failed for session {session_id}: {e}")
+            websocket_connections_total.labels(result="failed").inc()
+            raise
+
+    def disconnect(self, session_id: uuid.UUID, reason: str = "normal"):
         """Remove a WebSocket connection."""
         if session_id in self.active_connections:
             del self.active_connections[session_id]
             logger.info(f"WebSocket disconnected for session {session_id}")
+
+            # Track disconnection metrics
+            websocket_disconnects_total.labels(reason=reason).inc()
+            websocket_active_connections.dec()
 
     async def send_message(self, session_id: uuid.UUID, message: dict):
         """Send a message to a specific coaching session."""
@@ -173,9 +197,19 @@ class ConnectionManager:
             websocket = self.active_connections[session_id]
             try:
                 await websocket.send_json(message)
+                # Track outgoing message metrics
+                message_type = message.get("type", "unknown")
+                try:
+                    websocket_messages_total.labels(
+                        message_type=message_type,
+                        direction="outgoing"
+                    ).inc()
+                except Exception as e:
+                    logger.error(f"Failed to track outgoing message metrics: {e}")
             except Exception as e:
                 logger.error(f"Failed to send message to session {session_id}: {e}")
-                self.disconnect(session_id)
+                websocket_message_failures_total.labels(failure_type="send_error").inc()
+                self.disconnect(session_id, reason="send_error")
 
 manager = ConnectionManager()
 
@@ -516,6 +550,15 @@ async def coaching_websocket(
 
                 message_type = data.get("type")
 
+                # Track message metrics
+                try:
+                    websocket_messages_total.labels(
+                        message_type=message_type or "unknown",
+                        direction="incoming"
+                    ).inc()
+                except Exception as e:
+                    logger.error(f"Failed to track message metrics: {e}")
+
                 if message_type == "heartbeat":
                     # Respond to heartbeat
                     await websocket.send_json({"type": "heartbeat"})
@@ -561,6 +604,7 @@ async def coaching_websocket(
                         })
                     except asyncio.TimeoutError:
                         logger.warning(f"Tool call timeout for {tool_name} in session {session_id}")
+                        websocket_message_failures_total.labels(failure_type="tool_timeout").inc()
                         await websocket.send_json({
                             "type": "tool_response",
                             "tool_name": tool_name,
@@ -570,6 +614,7 @@ async def coaching_websocket(
                     except ValueError as e:
                         # Tool validation/registration error
                         logger.warning(f"Tool validation failed for {tool_name}: {e}")
+                        websocket_message_failures_total.labels(failure_type="tool_validation").inc()
                         await websocket.send_json({
                             "type": "error",
                             "message": f"Tool validation failed: {str(e)}"
@@ -577,12 +622,14 @@ async def coaching_websocket(
                     except PermissionError as e:
                         # Tool authorization error
                         logger.warning(f"Tool authorization failed for {tool_name}: {e}")
+                        websocket_message_failures_total.labels(failure_type="tool_authorization").inc()
                         await websocket.send_json({
                             "type": "error",
                             "message": f"Tool authorization failed: {str(e)}"
                         })
                     except Exception as e:
                         logger.error(f"Tool execution failed: {e}")
+                        websocket_message_failures_total.labels(failure_type="tool_execution").inc()
                         await websocket.send_json({
                             "type": "error",
                             "message": f"Tool execution failed: {str(e)}"

@@ -16,6 +16,10 @@ from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.core.metrics import (
+    rate_limit_violations_total,
+    security_rate_limit_exceeded_total,
+)
 from app.db.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
@@ -160,7 +164,7 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
     Enforces rate limits based on user role and returns 429 if exceeded.
     """
     # Skip rate limiting for health checks and metrics
-    if request.url.path in ["/health", "/health/live", "/health/ready", "/api/v1/metrics", "/metrics"]:
+    if request.url.path in ["/health", "/health/live", "/health/ready", "/api/v1/metrics", "/metrics", "/v1/metrics"]:
         return await call_next(request)
 
     # Get client identifier and role
@@ -182,6 +186,17 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
                 "method": request.method,
             }
         )
+
+        # Record rate limit violation metrics
+        security_rate_limit_exceeded_total.labels(
+            endpoint=request.url.path,
+            user_role=user_role
+        ).inc()
+
+        rate_limit_violations_total.labels(
+            limit_type="http_request",
+            user_role=user_role
+        ).inc()
 
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

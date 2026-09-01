@@ -348,6 +348,9 @@ class GroqProvider(LLMProviderInterface):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[str] = None,
     ) -> LLMResponse:
+        import time
+        start_time = time.time()
+
         try:
             # Convert LLMMessage to Groq format (compatible with OpenAI)
             groq_messages = [
@@ -392,7 +395,7 @@ class GroqProvider(LLMProviderInterface):
                     for tc in choice.message.tool_calls
                 ]
 
-            return LLMResponse(
+            result = LLMResponse(
                 content=choice.message.content or "",
                 tool_calls=tool_calls,
                 model=response.model,
@@ -403,7 +406,35 @@ class GroqProvider(LLMProviderInterface):
                 } if response.usage else None,
             )
 
+            # Record metrics
+            from app.core.metrics import (
+                llm_input_tokens_total,
+                llm_output_tokens_total,
+                llm_request_duration_seconds,
+                llm_requests_total,
+            )
+
+            duration = time.time() - start_time
+            llm_requests_total.labels(provider="groq", model=self.config.model).inc()
+            llm_request_duration_seconds.labels(provider="groq").observe(duration)
+
+            if result.usage:
+                llm_input_tokens_total.labels(provider="groq").inc(result.usage["prompt_tokens"])
+                llm_output_tokens_total.labels(provider="groq").inc(result.usage["completion_tokens"])
+
+            return result
+
         except Exception as e:
+            # Record failure metrics
+            from app.core.metrics import (
+                llm_request_duration_seconds,
+                llm_request_failures_total,
+            )
+
+            duration = time.time() - start_time
+            llm_request_failures_total.labels(provider="groq", failure_type=type(e).__name__).inc()
+            llm_request_duration_seconds.labels(provider="groq").observe(duration)
+
             self._handle_error(e)
 
     async def generate_stream(

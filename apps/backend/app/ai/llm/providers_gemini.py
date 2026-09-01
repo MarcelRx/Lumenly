@@ -25,6 +25,20 @@ from .interface import (
 
 logger = logging.getLogger(__name__)
 
+# Import metrics
+try:
+    from app.core.metrics import (
+        llm_input_tokens_total,
+        llm_output_tokens_total,
+        llm_request_duration_seconds,
+        llm_request_failures_total,
+        llm_requests_total,
+    )
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+    logger.warning("LLM metrics not available in Gemini provider")
+
 
 class GeminiProvider(LLMProviderInterface):
     """Google Gemini API provider implementation."""
@@ -48,6 +62,7 @@ class GeminiProvider(LLMProviderInterface):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[str] = None,
     ) -> LLMResponse:
+        start_time = time.time()
         try:
             # Extract API key from config
             api_key = self.config.api_key
@@ -128,14 +143,32 @@ class GeminiProvider(LLMProviderInterface):
                     "total_tokens": candidate["usageMetadata"].get("totalTokenCount", 0),
                 }
 
-            return LLMResponse(
+            result = LLMResponse(
                 content=content,
                 tool_calls=tool_calls,
                 model=self.config.model,
                 usage=usage,
             )
 
+            # Record success metrics
+            if METRICS_AVAILABLE:
+                duration = time.time() - start_time
+                llm_requests_total.labels(provider="gemini", model=self.config.model).inc()
+                llm_request_duration_seconds.labels(provider="gemini").observe(duration)
+
+                if usage:
+                    llm_input_tokens_total.labels(provider="gemini").inc(usage.get("prompt_tokens", 0))
+                    llm_output_tokens_total.labels(provider="gemini").inc(usage.get("completion_tokens", 0))
+
+            return result
+
         except Exception as e:
+            # Record failure metrics
+            if METRICS_AVAILABLE:
+                duration = time.time() - start_time
+                llm_request_failures_total.labels(provider="gemini", failure_type=type(e).__name__).inc()
+                llm_request_duration_seconds.labels(provider="gemini").observe(duration)
+
             self._handle_error(e)
 
     async def generate_stream(

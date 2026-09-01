@@ -26,10 +26,15 @@ from app.core.logging_config import (
     setup_logging,
     validate_request_id,
 )
+from app.core.metrics import (
+    database_health_status,
+    initialize_metrics,
+)
 from app.db.mongo import close_mongo, get_mongo_client, init_mongo
 from app.db.postgres import AsyncSessionLocal, close_postgres
 from app.db.qdrant import close_qdrant, get_qdrant_client, init_qdrant
 from app.db.redis import close_redis, get_redis_client, init_redis
+from app.middleware.metrics import metrics_middleware
 from app.middleware.rate_limit import rate_limit_middleware
 
 # Setup logging based on environment
@@ -47,6 +52,7 @@ def parse_cors_origins(origins_string: str) -> list[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup operations
+    initialize_metrics()  # Initialize Prometheus metrics
     await init_mongo()
     await init_qdrant()
     await init_redis()
@@ -181,6 +187,9 @@ app.add_middleware(
     allow_methods=[method.strip() for method in settings.ALLOW_METHODS.split(",")],
     allow_headers=[header.strip() for header in settings.ALLOW_HEADERS.split(",")],
 )
+
+# Metrics middleware (must be before rate limiting to track all requests)
+app.middleware("http")(metrics_middleware)
 
 # Rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
@@ -342,11 +351,14 @@ async def readiness_check():
             async with AsyncSessionLocal() as session:
                 await session.execute(text("SELECT 1"))
         health_status["checks"]["postgres"] = {"status": "healthy"}
+        database_health_status.labels(database='postgresql').set(1)
     except TimeoutError:
         health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "timeout"}
+        database_health_status.labels(database='postgresql').set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "connection_failed"}
+        database_health_status.labels(database='postgresql').set(0)
         overall_healthy = False
 
     # Check MongoDB with timeout
@@ -355,11 +367,14 @@ async def readiness_check():
             mongo_client = get_mongo_client()
             await mongo_client.admin.command('ping')
         health_status["checks"]["mongodb"] = {"status": "healthy"}
+        database_health_status.labels(database='mongodb').set(1)
     except TimeoutError:
         health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "timeout"}
+        database_health_status.labels(database='mongodb').set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "connection_failed"}
+        database_health_status.labels(database='mongodb').set(0)
         overall_healthy = False
 
     # Check Redis with timeout
@@ -368,11 +383,14 @@ async def readiness_check():
             redis_client = get_redis_client()
             await redis_client.ping()
         health_status["checks"]["redis"] = {"status": "healthy"}
+        database_health_status.labels(database='redis').set(1)
     except TimeoutError:
         health_status["checks"]["redis"] = {"status": "unhealthy", "error": "timeout"}
+        database_health_status.labels(database='redis').set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["redis"] = {"status": "unhealthy", "error": "connection_failed"}
+        database_health_status.labels(database='redis').set(0)
         overall_healthy = False
 
     # Check Qdrant with timeout
@@ -381,11 +399,14 @@ async def readiness_check():
             qdrant_client = get_qdrant_client()
             await qdrant_client.get_collections()
         health_status["checks"]["qdrant"] = {"status": "healthy"}
+        database_health_status.labels(database='qdrant').set(1)
     except TimeoutError:
         health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "timeout"}
+        database_health_status.labels(database='qdrant').set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "connection_failed"}
+        database_health_status.labels(database='qdrant').set(0)
         overall_healthy = False
 
     if not overall_healthy:

@@ -19,6 +19,17 @@ from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
+# Import security metrics
+try:
+    from app.core.metrics import (
+        security_authorization_failures_total,
+        security_cross_tenant_attempts_total,
+    )
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+    logger.warning("Security metrics not available in tool registry")
+
 
 @dataclass
 class ToolSchema:
@@ -198,6 +209,8 @@ class ToolRegistry:
         tool = self.get_tool(tool_name)
         if not tool:
             logger.warning(f"Attempted to execute unregistered tool: {tool_name} by user {user_id}")
+            if METRICS_AVAILABLE:
+                security_authorization_failures_total.labels(resource_type="unregistered_tool").inc()
             raise ValueError(f"Tool '{tool_name}' is not registered")
 
         # Step 2: Validate arguments against schema
@@ -210,6 +223,8 @@ class ToolRegistry:
         # Step 3: Check authorization
         if not self._check_authorization(tool.authorization, user_id, user_role):
             logger.warning(f"Tool authorization failed for {tool_name} by user {user_id}")
+            if METRICS_AVAILABLE:
+                security_authorization_failures_total.labels(resource_type="tool_execution").inc()
             raise PermissionError(f"User not authorized to execute tool '{tool_name}'")
 
         # Step 4: Execute tool with user context
@@ -349,6 +364,10 @@ class ToolRegistry:
                     f"Cross-tenant access attempt: User {user_id} attempted to access habit {habit_id}"
                 )
 
+                # Record security metric
+                if METRICS_AVAILABLE:
+                    security_cross_tenant_attempts_total.labels(resource_type="habit").inc()
+
                 # Log security event for compliance
                 await self._log_security_event(
                     user_id=user_id,
@@ -416,6 +435,10 @@ class ToolRegistry:
                     f"Cross-tenant access attempt: User {user_id} attempted to access goal {goal_id}"
                 )
 
+                # Record security metric
+                if METRICS_AVAILABLE:
+                    security_cross_tenant_attempts_total.labels(resource_type="goal").inc()
+
                 # Log security event for compliance
                 await self._log_security_event(
                     user_id=user_id,
@@ -472,6 +495,11 @@ class ToolRegistry:
             journals = await JournalEntry.find(
                 {"user_id": user_id}
             ).sort("-created_at").limit(limit).to_list()
+
+            # Record successful access metric
+            if METRICS_AVAILABLE:
+                # No metric for successful access - only failures are tracked
+                pass
 
             # Return actual journal data from database
             journal_list = [

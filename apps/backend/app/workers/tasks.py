@@ -18,6 +18,72 @@ from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.workers.memory_worker import SyncMemoryWorkerService
 
+# Import synchronous metrics for Celery workers
+try:
+    from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
+
+    # Use a separate registry for Celery worker metrics to avoid conflicts
+    celery_worker_registry = CollectorRegistry()
+
+    # Define synchronous Celery metrics with separate registry
+    celery_tasks_total_sync = Counter(
+        'celery_tasks_total',
+        'Total Celery task executions',
+        ['task', 'status'],
+        registry=celery_worker_registry
+    )
+
+    celery_task_failures_total_sync = Counter(
+        'celery_task_failures_total',
+        'Total Celery task failures',
+        ['task', 'failure_type'],
+        registry=celery_worker_registry
+    )
+
+    celery_task_retries_total_sync = Counter(
+        'celery_task_retries_total',
+        'Total Celery task retries',
+        ['task'],
+        registry=celery_worker_registry
+    )
+
+    celery_task_duration_seconds_sync = Histogram(
+        'celery_task_duration_seconds',
+        'Celery task execution duration in seconds',
+        ['task'],
+        buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, float('inf')),
+        registry=celery_worker_registry
+    )
+
+    document_processing_total_sync = Counter(
+        'document_processing_total',
+        'Total document processing attempts',
+        ['status'],
+        registry=celery_worker_registry
+    )
+
+    document_processing_duration_seconds_sync = Histogram(
+        'document_processing_duration_seconds',
+        'Document processing duration in seconds',
+        ['status'],
+        buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, float('inf')),
+        registry=celery_worker_registry
+    )
+
+    vector_ingestion_failures_total_sync = Counter(
+        'vector_ingestion_failures_total',
+        'Total vector ingestion failures',
+        ['failure_type'],
+        registry=celery_worker_registry
+    )
+
+    METRICS_AVAILABLE = True
+except ImportError:
+    # Fallback if prometheus_client is not available
+    METRICS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("prometheus_client not available in Celery worker context")
+
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 COLLECTION_NAME = "lumenly_vectors"
@@ -130,7 +196,17 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         document_id: The ID of the document to process
         user_id: The user ID for ownership validation and multi-tenant isolation
     """
+    start_time = time.time()
     retry_count = self.request.retries
+
+    # Track task start metrics
+    if METRICS_AVAILABLE:
+        celery_tasks_total_sync.labels(task="process_document_task", status="started").inc()
+
+    # Track retry metrics
+    if METRICS_AVAILABLE and retry_count > 0:
+        celery_task_retries_total_sync.labels(task="process_document_task").inc()
+
     logger.info(
         f"Processing document {document_id} "
         f"(attempt {retry_count + 1}/{self.max_retries + 1})",
@@ -395,6 +471,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
 
             except Exception as e:
                 logger.error(f"Failed to process chunk {idx} for document {document_id}: {e}")
+                # Track vector ingestion failure metrics
+                if METRICS_AVAILABLE:
+                    vector_ingestion_failures_total_sync.labels(failure_type=type(e).__name__).inc()
                 # Classify error based on type
                 if "Qdrant" in str(type(e).__module__) or "connection" in str(e).lower():
                     raise TransientQdrantError(f"Qdrant upsert failed for chunk {idx}: {e}")
@@ -429,6 +508,13 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             }
         )
 
+        # Track success metrics
+        if METRICS_AVAILABLE:
+            duration = time.time() - start_time
+            celery_tasks_total_sync.labels(task="process_document_task", status="completed").inc()
+            document_processing_total_sync.labels(status="success").inc()
+            document_processing_duration_seconds_sync.labels(status="success").observe(duration)
+
     except PermanentError as e:
         # Permanent errors - do not retry, mark as FAILED immediately
         logger.error(
@@ -461,6 +547,14 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 )
         except Exception as save_error:
             logger.error(f"Failed to update document status to FAILED: {save_error}")
+
+        # Track permanent failure metrics
+        if METRICS_AVAILABLE:
+            duration = time.time() - start_time
+            celery_task_failures_total_sync.labels(task="process_document_task", failure_type=type(e).__name__).inc()
+            celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
+            document_processing_total_sync.labels(status="failed").inc()
+            document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
 
         # Do not raise for permanent errors - task completes with FAILED status
         return
@@ -510,6 +604,15 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     )
             except Exception as save_error:
                 logger.error(f"Failed to update document status to FAILED: {save_error}")
+
+            # Track exhausted retry metrics
+            if METRICS_AVAILABLE:
+                duration = time.time() - start_time
+                celery_task_failures_total_sync.labels(task="process_document_task", failure_type="exhausted_retries").inc()
+                celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
+                document_processing_total_sync.labels(status="failed").inc()
+                document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
+
             return
 
         # Re-raise to trigger Celery's retry mechanism
@@ -549,6 +652,14 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         except Exception as save_error:
             logger.error(f"Failed to update document status to FAILED: {save_error}")
 
+        # Track timeout metrics
+        if METRICS_AVAILABLE:
+            duration = time.time() - start_time
+            celery_task_failures_total_sync.labels(task="process_document_task", failure_type="timeout").inc()
+            celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
+            document_processing_total_sync.labels(status="failed").inc()
+            document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
+
         # Do not raise - mark as FAILED and complete
         return
 
@@ -585,6 +696,14 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 )
         except Exception as save_error:
             logger.error(f"Failed to update document status to FAILED: {save_error}")
+
+        # Track unexpected error metrics
+        if METRICS_AVAILABLE:
+            duration = time.time() - start_time
+            celery_task_failures_total_sync.labels(task="process_document_task", failure_type="unexpected").inc()
+            celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
+            document_processing_total_sync.labels(status="failed").inc()
+            document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
 
         # Do not raise - mark as FAILED and complete
         return
