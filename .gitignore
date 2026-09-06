@@ -81,3 +81,8 @@ Thumbs.db
 .env.test
 credentials.json
 *.pem
+
+# Backup artifacts (keep scripts, ignore dumps)
+backups/postgres/*.dump
+backups/mongo/*/
+!backups/*.sh
