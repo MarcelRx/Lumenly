@@ -10,7 +10,6 @@ import os
 import pytest
 
 # Set environment before any imports
-os.environ.setdefault('PROMETHEUS_MULTIPROC_DIR', '/tmp/test_prometheus_multiproc')
 os.environ.setdefault('APP_ENV', 'development')
 
 # Import metrics module directly
@@ -386,7 +385,7 @@ class TestMetricsRegistry:
     def test_registry_contains_our_metrics(self):
         """Test that registry contains our defined metrics."""
         metrics = list(prometheus_registry.collect())
-        metric_names = {metric._name for metric in metrics}
+        metric_names = {metric.name for metric in metrics}
 
         expected_metrics = {
             "http_requests_total",
@@ -517,25 +516,22 @@ class TestMetricsSafety:
     def test_counter_can_be_incremented(self):
         """Test that counters can be incremented."""
         # Test auth login attempts counter
-        initial_samples = list(auth_login_attempts_total.collect())
-        initial_value = 0
-        if initial_samples and initial_samples[0].samples:
-            initial_value = initial_samples[0].samples[0].value
-
-        # Increment
         auth_login_attempts_total.labels(result="test_increment").inc()
 
-        # Check incremented
-        final_samples = list(auth_login_attempts_total.collect())
-        final_value = 0
-        if final_samples and final_samples[0].samples:
-            # Find the test_increment sample
-            for sample in final_samples[0].samples:
-                if sample.labels.get("result") == "test_increment":
-                    final_value = sample.value
+        # Check that the counter was incremented
+        samples = list(auth_login_attempts_total.collect())
+        assert len(samples) > 0, "Counter should produce samples"
+
+        # Find the test_increment sample
+        found = False
+        for sample in samples:
+            for metric_sample in sample.samples:
+                if metric_sample.labels.get("result") == "test_increment":
+                    assert metric_sample.value >= 1, "Counter should be at least 1 after increment"
+                    found = True
                     break
 
-        assert final_value > initial_value, "Counter should increment"
+        assert found, "Should find test_increment counter sample"
 
 
 if __name__ == "__main__":

@@ -86,6 +86,7 @@ log "Restoring from backup..."
 if mongorestore --host "$MONGO_HOST" \
                 --port "$MONGO_PORT" \
                 --db "$MONGO_DB" \
+                --drop \
                 "$BACKUP_PATH/$MONGO_DB" \
                 >> "$LOG_FILE" 2>&1; then
     log "Restore completed successfully"

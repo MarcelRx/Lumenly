@@ -24,3 +24,14 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
         replacement: "lumenly-backend"
+
+  - job_name: pushgateway
+    scrape_interval: 30s
+    honor_labels: true
+    static_configs:
+      - targets:
+          - host.docker.internal:9091
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "pushgateway"

@@ -1,7 +1,7 @@
 # apps/backend/app/workers/tasks.py
 import logging
+import time
 import uuid
-from typing import List, Optional
 
 from bson import ObjectId
 from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
@@ -94,43 +94,36 @@ logger = logging.getLogger(__name__)
 # Exception Classification
 class RetryableError(Exception):
     """Base class for retryable errors (transient failures)."""
-    pass
 
 
 class PermanentError(Exception):
     """Base class for permanent errors (should not retry)."""
-    pass
 
 
 class DocumentNotFoundError(PermanentError):
     """Document not found in database."""
-    pass
 
 
 class InvalidDocumentDataError(PermanentError):
     """Document data is corrupted or invalid."""
-    pass
 
 
 class UnsupportedFormatError(PermanentError):
     """Document format is not supported."""
-    pass
 
 
 class TransientDatabaseError(RetryableError):
     """Temporary database connection or operation failure."""
-    pass
 
 
 class TransientQdrantError(RetryableError):
     """Temporary Qdrant connection or operation failure."""
-    pass
 
 
 
 
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> List[str]:
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
     """
     Split text into overlapping chunks.
 
@@ -289,9 +282,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
 
             # In development/test, use mock if API keys are not properly configured
             if settings.APP_ENV != "production":
-                if provider_name == "openai" and not settings.OPENAI_API_KEY:
-                    provider_name = "mock"
-                elif provider_name == "cohere" and not settings.COHERE_API_KEY:
+                if provider_name == "openai" and not settings.OPENAI_API_KEY or provider_name == "cohere" and not settings.COHERE_API_KEY:
                     provider_name = "mock"
 
             # Map provider name to API key based on configuration
@@ -541,7 +532,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     {
                         "$set": {
                             "status": "FAILED",
-                            "error_message": f"{type(e).__name__}: {str(e)}"
+                            "error_message": f"{type(e).__name__}: {e!s}"
                         }
                     }
                 )
@@ -598,7 +589,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                         {
                             "$set": {
                                 "status": "FAILED",
-                                "error_message": f"Failed after {self.max_retries + 1} attempts: {str(e)}"
+                                "error_message": f"Failed after {self.max_retries + 1} attempts: {e!s}"
                             }
                         }
                     )
@@ -645,7 +636,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     {
                         "$set": {
                             "status": "FAILED",
-                            "error_message": f"Processing timed out: {str(e)}"
+                            "error_message": f"Processing timed out: {e!s}"
                         }
                     }
                 )
@@ -690,7 +681,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     {
                         "$set": {
                             "status": "FAILED",
-                            "error_message": f"Unexpected error: {str(e)}"
+                            "error_message": f"Unexpected error: {e!s}"
                         }
                     }
                 )
@@ -731,7 +722,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
 def memory_consolidation_task(
     self,
     user_id: str,
-    memory_type: Optional[str] = None
+    memory_type: str | None = None
 ) -> dict:
     """
     Celery task to consolidate similar memories for a user.

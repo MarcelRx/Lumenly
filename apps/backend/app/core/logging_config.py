@@ -13,8 +13,8 @@ import logging
 import logging.config
 import sys
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 from pythonjsonlogger import jsonlogger
 
@@ -54,6 +54,12 @@ class SecretRedactingFormatter(logging.Formatter):
         (r'Bearer\s+[A-Za-z0-9\._-]+', 'Bearer [REDACTED]'),
         (r'sk-[a-zA-Z0-9]{20,}', 'sk-[REDACTED]'),  # OpenAI-style API keys
         (r'AIza[a-zA-Z0-9_-]{35}', 'AIza[REDACTED]'),  # Google-style API keys
+        # URL-based credential patterns - specifically match and redact credentials in URLs
+        (r'(postgresql|mysql|mongodb)://[^:/\s]+:[^@/\s]+@', r'\1://[REDACTED]@'),
+        (r'redis://:[^@/\s]+@', 'redis://[REDACTED]@'),  # Redis URL with password only (no username)
+        (r'://[^:/\s]+:[^@/\s]+@', '://[REDACTED]@'),  # Catch-all for URL credentials
+        # Handle generic API key patterns with variations
+        (r'sk-[a-zA-Z0-9_-]+', 'sk-[REDACTED]'),  # Catch shorter API keys too
     ]
 
     def __init__(self, *args, **kwargs):
@@ -93,7 +99,7 @@ class StructuredFormatter(jsonlogger.JsonFormatter):
         kwargs.pop('message', None)
         super().__init__(*args, **kwargs)
 
-    def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]):
+    def add_fields(self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]):
         super().add_fields(log_record, record, message_dict)
 
         # Add standard fields
@@ -109,10 +115,10 @@ class StructuredFormatter(jsonlogger.JsonFormatter):
         if 'timestamp' in log_record:
             timestamp = log_record['timestamp']
             if isinstance(timestamp, datetime):
-                log_record['timestamp'] = timestamp.astimezone(timezone.utc).isoformat()
+                log_record['timestamp'] = timestamp.astimezone(UTC).isoformat()
         else:
             # Add timestamp if not present
-            log_record['timestamp'] = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+            log_record['timestamp'] = datetime.fromtimestamp(record.created, tz=UTC).isoformat()
 
     def _get_environment(self) -> str:
         """Get current environment from settings."""

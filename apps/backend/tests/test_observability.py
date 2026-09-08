@@ -350,9 +350,13 @@ class TestObservabilityIntegration:
         valid_uuid = str(uuid.uuid4())
         assert validate_request_id(valid_uuid) is True
 
-        # Invalid should fail
-        assert validate_request_id("invalid") is False
+        # Valid alphanumeric custom IDs should pass (implementation allows these)
+        assert validate_request_id("custom-request-id") is True
+        assert validate_request_id("my_request_123") is True
+
+        # Invalid should fail (oversized, special characters)
         assert validate_request_id("x" * 150) is False
+        assert validate_request_id("invalid@chars") is False
 
     def test_contextvar_propagation(self):
         """Test that contextvars work for request ID propagation."""

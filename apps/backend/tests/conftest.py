@@ -9,7 +9,7 @@ from sqlalchemy import select
 os.environ.setdefault("APP_ENV", "development")  # Use development for testing
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-32bytes-min")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-for-testing-32bytes-min")
-os.environ.setdefault("POSTGRES_URL", "postgresql+asyncpg://lumenly:lumenly@localhost:5433/lumenly_test")
+os.environ.setdefault("POSTGRES_URL", "postgresql+asyncpg://lumenly:lumenly_secure_password_32chars@localhost:5433/lumenly_test")
 os.environ.setdefault("MONGODB_URL", "mongodb://localhost:27017/lumenly_test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("QDRANT_URL", "http://localhost:6333")

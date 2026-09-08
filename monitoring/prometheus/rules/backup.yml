@@ -1,0 +1,295 @@
+# Backup and Restore Monitoring Rules for Lumenly
+# These rules monitor backup success, restore success, and backup retention
+
+groups:
+  - name: backup_alerts
+    interval: 5m
+    rules:
+      # Backup Success Metric (to be populated by backup scripts)
+      - record: backup_success_total
+        expr: 0
+      
+      # Backup Failure Metric (to be populated by backup scripts)
+      - record: backup_failure_total
+        expr: 0
+      
+      # Backup Duration Metric (to be populated by backup scripts)
+      - record: backup_duration_seconds
+        expr: 0
+      
+      # Backup Size Metric (to be populated by backup scripts)
+      - record: backup_size_bytes
+        expr: 0
+      
+      # Restore Success Metric (to be populated by restore scripts)
+      - record: restore_success_total
+        expr: 0
+      
+      # Restore Failure Metric (to be populated by restore scripts)
+      - record: restore_failure_total
+        expr: 0
+      
+      # Restore Duration Metric (to be populated by restore scripts)
+      - record: restore_duration_seconds
+        expr: 0
+      
+      # Backup Age Metric (time since last successful backup)
+      - record: backup_age_seconds
+        expr: 0
+      
+      # PostgreSQL Backup Success
+      - record: postgresql_backup_success_total
+        expr: 0
+      
+      # PostgreSQL Backup Failure
+      - record: postgresql_backup_failure_total
+        expr: 0
+      
+      # MongoDB Backup Success
+      - record: mongodb_backup_success_total
+        expr: 0
+      
+      # MongoDB Backup Failure
+      - record: mongodb_backup_failure_total
+        expr: 0
+      
+      # PostgreSQL Restore Success
+      - record: postgresql_restore_success_total
+        expr: 0
+      
+      # PostgreSQL Restore Failure
+      - record: postgresql_restore_failure_total
+        expr: 0
+      
+      # MongoDB Restore Success
+      - record: mongodb_restore_success_total
+        expr: 0
+      
+      # MongoDB Restore Failure
+      - record: mongodb_restore_failure_total
+        expr: 0
+      
+      # Backup Retention Metric (number of backups retained)
+      - record: backup_retention_count
+        expr: 0
+      
+      # Backup Disk Usage Metric
+      - record: backup_disk_usage_bytes
+        expr: 0
+
+  - name: backup_alerts_critical
+    interval: 1m
+    rules:
+      # P0: Backup Failure
+      - alert: BackupFailure
+        expr: increase(backup_failure_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "Backup failed"
+          description: "Backup has failed in the last 5 minutes. Check backup logs."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # P0: PostgreSQL Backup Failure
+      - alert: PostgreSQLBackupFailure
+        expr: increase(postgresql_backup_failure_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL backup failed"
+          description: "PostgreSQL backup has failed in the last 5 minutes. Check backup logs."
+          runbook: "https://docs.lumenly.internal/runbooks/postgres-recovery"
+      
+      # P0: MongoDB Backup Failure
+      - alert: MongoDBBackupFailure
+        expr: increase(mongodb_backup_failure_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: mongodb
+        annotations:
+          summary: "MongoDB backup failed"
+          description: "MongoDB backup has failed in the last 5 minutes. Check backup logs."
+          runbook: "https://docs.lumenly.internal/runbooks/mongodb-recovery"
+      
+      # P0: Restore Failure
+      - alert: RestoreFailure
+        expr: increase(restore_failure_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: restore
+        annotations:
+          summary: "Restore failed"
+          description: "Restore has failed in the last 5 minutes. Check restore logs."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # P0: PostgreSQL Restore Failure
+      - alert: PostgreSQLRestoreFailure
+        expr: increase(postgresql_restore_failure_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL restore failed"
+          description: "PostgreSQL restore has failed in the last 5 minutes. Check restore logs."
+          runbook: "https://docs.lumenly.internal/runbooks/postgres-recovery"
+      
+      # P0: MongoDB Restore Failure
+      - alert: MongoDBRestoreFailure
+        expr: increase(mongodb_restore_failure_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: mongodb
+        annotations:
+          summary: "MongoDB restore failed"
+          description: "MongoDB restore has failed in the last 5 minutes. Check restore logs."
+          runbook: "https://docs.lumenly.internal/runbooks/mongodb-recovery"
+
+  - name: backup_alerts_warning
+    interval: 5m
+    rules:
+      # P1: Backup Not Completed Within Window (24 hours)
+      - alert: BackupNotCompleted
+        expr: backup_age_seconds > 86400
+        for: 5m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Backup not completed within 24 hours"
+          description: "Last successful backup was {{ $value | humanizeDuration }} ago. RPO target is 24 hours."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # P1: PostgreSQL Backup Not Completed Within Window
+      - alert: PostgreSQLBackupNotCompleted
+        expr: backup_age_seconds{database="postgresql"} > 86400
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL backup not completed within 24 hours"
+          description: "Last successful PostgreSQL backup was {{ $value | humanizeDuration }} ago. RPO target is 24 hours."
+          runbook: "https://docs.lumenly.internal/runbooks/postgres-recovery"
+      
+      # P1: MongoDB Backup Not Completed Within Window
+      - alert: MongoDBBackupNotCompleted
+        expr: backup_age_seconds{database="mongodb"} > 86400
+        for: 5m
+        labels:
+          severity: warning
+          component: mongodb
+        annotations:
+          summary: "MongoDB backup not completed within 24 hours"
+          description: "Last successful MongoDB backup was {{ $value | humanizeDuration }} ago. RPO target is 24 hours."
+          runbook: "https://docs.lumenly.internal/runbooks/mongodb-recovery"
+      
+      # P2: Backup Disk Space Low
+      - alert: BackupDiskSpaceLow
+        expr: (backup_disk_usage_bytes / 1000000000000) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Backup disk space low"
+          description: "Backup disk usage is {{ $value | humanizePercentage }} of 1TB. Consider cleanup or expansion."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # P2: Backup Retention Too Low
+      - alert: BackupRetentionTooLow
+        expr: backup_retention_count < 3
+        for: 5m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Backup retention too low"
+          description: "Only {{ $value }} backups retained. Minimum recommended is 3."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # P2: Backup Duration Too Long
+      - alert: BackupDurationTooLong
+        expr: backup_duration_seconds > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Backup duration too long"
+          description: "Backup took {{ $value | humanizeDuration }}. Expected is < 1 hour."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # P2: Restore Duration Too Long
+      - alert: RestoreDurationTooLong
+        expr: restore_duration_seconds > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: restore
+        annotations:
+          summary: "Restore duration too long"
+          description: "Restore took {{ $value | humanizeDuration }}. Expected is < 1 hour. RTO target is 4 hours."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+
+  - name: backup_recovery_objectives
+    interval: 5m
+    rules:
+      # RPO Breach Warning
+      - alert: RPOBreachWarning
+        expr: backup_age_seconds > 72000
+        for: 5m
+        labels:
+          severity: warning
+          component: backup
+          objective: rpo
+        annotations:
+          summary: "RPO breach warning"
+          description: "Backup age {{ $value | humanizeDuration }} exceeds 20 hours. RPO target is 24 hours."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # RPO Breach Critical
+      - alert: RPOBreachCritical
+        expr: backup_age_seconds > 86400
+        for: 5m
+        labels:
+          severity: critical
+          component: backup
+          objective: rpo
+        annotations:
+          summary: "RPO breach critical"
+          description: "Backup age {{ $value | humanizeDuration }} exceeds 24 hours RPO target."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # RTO Breach Warning (during restore)
+      - alert: RTOBreachWarning
+        expr: restore_duration_seconds > 10800
+        for: 1m
+        labels:
+          severity: warning
+          component: restore
+          objective: rto
+        annotations:
+          summary: "RTO breach warning"
+          description: "Restore duration {{ $value | humanizeDuration }} exceeds 3 hours. RTO target is 4 hours."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"
+      
+      # RTO Breach Critical (during restore)
+      - alert: RTOBreachCritical
+        expr: restore_duration_seconds > 14400
+        for: 1m
+        labels:
+          severity: critical
+          component: restore
+          objective: rto
+        annotations:
+          summary: "RTO breach critical"
+          description: "Restore duration {{ $value | humanizeDuration }} exceeds 4 hours RTO target."
+          runbook: "https://docs.lumenly.internal/runbooks/backup-restoration"

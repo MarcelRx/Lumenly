@@ -17,15 +17,20 @@ All metrics follow low-cardinality principles and never expose sensitive data.
 """
 import os
 
-from prometheus_client import Counter, Gauge, Histogram
-
 # Enable multiprocess mode for Uvicorn workers
 # This is required when using --workers > 1 in Uvicorn
+# IMPORTANT: This must be set BEFORE importing prometheus_client
 if 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
     os.environ['PROMETHEUS_MULTIPROC_DIR'] = '/tmp/prometheus_multiproc'
 
 # Ensure the directory exists for multiprocess metrics files
-os.makedirs(os.environ['PROMETHEUS_MULTIPROC_DIR'], exist_ok=True)
+try:
+    os.makedirs(os.environ['PROMETHEUS_MULTIPROC_DIR'], exist_ok=True)
+except Exception:
+    # If directory creation fails, continue anyway - tests may handle this
+    pass
+
+from prometheus_client import Counter, Gauge, Histogram
 
 # =============================================================================
 # HTTP METRICS

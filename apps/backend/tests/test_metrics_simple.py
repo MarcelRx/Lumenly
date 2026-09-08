@@ -5,7 +5,6 @@ Simple metrics validation without database dependencies.
 import os
 
 # Set environment before imports
-os.environ['PROMETHEUS_MULTIPROC_DIR'] = '/tmp/test_prometheus_multiproc'
 os.environ['APP_ENV'] = 'development'
 
 from app.core.metrics import (

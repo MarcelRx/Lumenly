@@ -126,6 +126,15 @@ services:
       timeout: 10s
       retries: 3
 
+  pushgateway:
+    image: prom/pushgateway:v1.8.0
+    container_name: lumenly-pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    networks:
+      - default
+
   backend:
     build:
       context: ../apps/backend
@@ -165,6 +174,7 @@ services:
       - RATE_LIMIT_FAIL_OPEN=${RATE_LIMIT_FAIL_OPEN:-false}
       - ALLOW_ORIGINS=${ALLOW_ORIGINS:-http://localhost:3000,http://localhost:8000}
       - ALLOW_CREDENTIALS=${ALLOW_CREDENTIALS:-true}
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     depends_on:
       postgres:
         condition: service_healthy
