@@ -15,6 +15,51 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lumenly
+          POSTGRES_PASSWORD: lumenly_secure_password_32chars
+          POSTGRES_DB: lumenly_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongosh --eval 'db.runCommand("ping").ok' --quiet
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      qdrant:
+        image: qdrant/qdrant:v1.7.4
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "curl -f http://localhost:6333/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,6 +74,71 @@ jobs:
           cd apps/backend
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio
+
+      - name: Verify service connectivity
+        run: |
+          cd apps/backend
+          python -c "
+          import asyncio
+          import sys
+
+          async def check_postgres():
+              from sqlalchemy.ext.asyncio import create_async_engine
+              engine = create_async_engine('postgresql+asyncpg://lumenly:lumenly_secure_password_32chars@localhost:5433/lumenly_test')
+              try:
+                  async with engine.begin() as conn:
+                      await conn.execute(lambda: 'SELECT 1')
+                  print('✓ PostgreSQL connection successful')
+                  await engine.dispose()
+              except Exception as e:
+                  print(f'✗ PostgreSQL connection failed: {e}')
+                  sys.exit(1)
+
+          async def check_mongodb():
+              from motor.motor_asyncio import AsyncIOMotorClient
+              client = AsyncIOMotorClient('mongodb://localhost:27017')
+              try:
+                  await client.admin.command('ping')
+                  print('✓ MongoDB connection successful')
+                  client.close()
+              except Exception as e:
+                  print(f'✗ MongoDB connection failed: {e}')
+                  sys.exit(1)
+
+          async def check_redis():
+              import redis.asyncio as redis
+              client = redis.from_url('redis://localhost:6379/1')
+              try:
+                  await client.ping()
+                  print('✓ Redis connection successful')
+                  await client.close()
+              except Exception as e:
+                  print(f'✗ Redis connection failed: {e}')
+                  sys.exit(1)
+
+          async def check_qdrant():
+              from httpx import AsyncClient
+              async with AsyncClient() as client:
+                  try:
+                      response = await client.get('http://localhost:6333/health')
+                      if response.status_code == 200:
+                          print('✓ Qdrant connection successful')
+                      else:
+                          print(f'✗ Qdrant health check failed: {response.status_code}')
+                          sys.exit(1)
+                  except Exception as e:
+                      print(f'✗ Qdrant connection failed: {e}')
+                      sys.exit(1)
+
+          async def main():
+              await check_postgres()
+              await check_mongodb()
+              await check_redis()
+              await check_qdrant()
+              print('All services are healthy')
+
+          asyncio.run(main())
+          "
 
       - name: Run tests
         run: |
@@ -76,12 +186,12 @@ jobs:
       - name: Run ruff linter
         run: |
           cd apps/backend
-          ruff check app/ || echo "Linting had issues, continuing..."
+          ruff check app/
 
       - name: Run ruff formatter check
         run: |
           cd apps/backend
-          ruff format app/ || echo "Formatting had issues, continuing..."
+          ruff format --check app/
 
   security-scan:
     name: Security Scan
