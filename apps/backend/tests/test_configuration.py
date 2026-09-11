@@ -482,8 +482,12 @@ class TestOptionalApiKeys:
 class TestRs256Keys:
     """Test RS256 key configuration."""
 
-    def test_rs256_keys_optional(self):
+    def test_rs256_keys_optional(self, monkeypatch):
         """Test that RS256 keys are optional."""
+        # Clear RS256 environment variables to test default behavior
+        monkeypatch.delenv("JWT_SECRET_RS256_PRIVATE", raising=False)
+        monkeypatch.delenv("JWT_SECRET_RS256_PUBLIC", raising=False)
+
         config = SettingsWithoutEnv(
             SECRET_KEY="test-secret",
             JWT_SECRET="test-jwt-secret",
