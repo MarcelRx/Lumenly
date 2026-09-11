@@ -14,14 +14,6 @@ from app.ai.memory.schema import (
     MemoryType,
     MemoryImportance,
     MemoryMetadata,
-    ConversationMemory,
-    JournalMemory,
-    GoalMemory,
-    HabitMemory,
-    PreferenceMemory,
-    BehavioralMemory,
-    KnowledgeMemory,
-    EpisodicMemory,
 )
 
 

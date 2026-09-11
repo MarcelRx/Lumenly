@@ -1,7 +1,7 @@
 # apps/backend/app/ai/agent_system/fusion.py
 import json
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -210,7 +210,9 @@ class FusionEngine:
         except Exception as e:
             logger.error(f"LLM generation failed in _generate_with_tool_support: {e}", exc_info=True)
             # Mock structure to handle error gracefully within logic flow
-            class MockMessage: content = f"Mock error: {e}"; tool_calls = None
+            class MockMessage:
+                content = f"Mock error: {e}"
+                tool_calls = None
             return MockMessage(), {}
 
     async def _generate_final_agent_confirmation(
@@ -265,4 +267,4 @@ class FusionEngine:
 
     def _mock_response(self, system_prompt: str, user_query: str) -> str:
         # Keeping your existing mock just in case llm_client is missing
-        return f"Mock response. (If you are seeing this, Step 2 test failed because llm_client is missing)."
+        return "Mock response. (If you are seeing this, Step 2 test failed because llm_client is missing)."

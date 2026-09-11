@@ -11,7 +11,7 @@ This module implements security measures to protect against:
 """
 import logging
 import re
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class AISecurityValidator:
         # Limit length
         if len(sanitized) > self.config.max_context_length:
             sanitized = sanitized[:self.config.max_context_length]
-            logger.warning(f"Input truncated due to length limit")
+            logger.warning("Input truncated due to length limit")
 
         return sanitized
 
@@ -284,7 +284,7 @@ class DataLeakagePrevention:
         for chunk in context:
             # This is a simple check - in production, you'd want
             # more sophisticated detection
-            if f"user_id:" not in chunk.lower():
+            if "user_id:" not in chunk.lower():
                 sanitized.append(chunk)
             else:
                 logger.warning("Removed potentially leaked context chunk")

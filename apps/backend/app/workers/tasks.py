@@ -20,7 +20,7 @@ from app.workers.memory_worker import SyncMemoryWorkerService
 
 # Import synchronous metrics for Celery workers
 try:
-    from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
+    from prometheus_client import CollectorRegistry, Counter, Histogram
 
     # Use a separate registry for Celery worker metrics to avoid conflicts
     celery_worker_registry = CollectorRegistry()

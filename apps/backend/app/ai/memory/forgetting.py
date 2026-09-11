@@ -10,8 +10,8 @@ This module implements forgetting policies:
 - Configurable per-user policies
 """
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Optional
+from datetime import datetime, timezone
 from enum import Enum
 
 from app.ai.memory.interfaces import (

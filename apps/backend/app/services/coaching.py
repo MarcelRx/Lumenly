@@ -477,7 +477,7 @@ Guidelines:
             upcoming_deadline_threshold = datetime.now() + timedelta(days=7)
             upcoming_deadlines_count = await Goal.find(
                 Goal.user_id == user_id,
-                Goal.is_completed == False,
+                not Goal.is_completed,
                 Goal.target_date <= upcoming_deadline_threshold
             ).count()
 
@@ -488,7 +488,7 @@ Guidelines:
             recent_journals = await JournalEntry.find(
                 JournalEntry.user_id == user_id,
                 JournalEntry.created_at >= week_ago,
-                JournalEntry.mood_score != None
+                JournalEntry.mood_score is not None
             ).to_list()
 
             if recent_journals:

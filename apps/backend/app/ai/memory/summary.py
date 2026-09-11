@@ -11,7 +11,7 @@ This module implements memory summarization using the LLM interface:
 import logging
 from typing import List, Optional
 
-from app.ai.llm.interface import LLMConfig, LLMMessage, LLMProviderInterface as LLMProvider, LLMProviderInterface
+from app.ai.llm.interface import LLMConfig, LLMMessage, LLMProviderInterface
 from app.ai.memory.interfaces import (
     IMemorySummarizer,
     MemoryRecord,

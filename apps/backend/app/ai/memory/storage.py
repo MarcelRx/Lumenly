@@ -177,7 +177,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
 
             try:
                 # Step 1: Store in MongoDB first
-                result = await db[collection_name].insert_one(mongo_doc)
+                await db[collection_name].insert_one(mongo_doc)
                 mongo_succeeded = True
                 logger.debug(f"Stored structured memory {memory.id} in MongoDB")
 

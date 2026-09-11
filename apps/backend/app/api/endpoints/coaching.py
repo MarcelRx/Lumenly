@@ -16,10 +16,11 @@ from app.core.metrics import (
     websocket_active_connections,
     websocket_connections_total,
     websocket_disconnects_total,
+    websocket_message_failures_total,
+    websocket_messages_total,
 )
 from app.core.security import decode_access_token
 from app.db.redis import get_redis_client
-from app.middleware.rate_limit import RateLimiter
 from app.models.domain import CoachingSession, SessionType
 from app.models.user import User
 from app.schemas.coaching import (
@@ -63,7 +64,6 @@ async def check_websocket_rate_limit(
     """
     try:
         redis_client = get_redis_client()
-        rate_limiter = RateLimiter()
 
         # Map limit types to Redis keys and limits
         limit_configs = {

@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
-from ..llm.interface import LLMProviderInterface, LLMMessage, LLMResponse
+from ..llm.interface import LLMProviderInterface, LLMMessage
 
 logger = logging.getLogger(__name__)
 

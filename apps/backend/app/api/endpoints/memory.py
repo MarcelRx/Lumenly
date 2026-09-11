@@ -17,7 +17,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.ai.memory import (
     MemoryImportance,
-    MemoryManager,
     MemoryRecord,
     MemoryRetrievalConfig,
     MemoryType,

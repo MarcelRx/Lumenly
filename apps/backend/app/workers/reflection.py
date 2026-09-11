@@ -287,8 +287,8 @@ def _store_reflection_insights(
         }
 
         # Insert insights
-        trend_result = insights_collection.insert_one(trend_insight)
-        recommendations_result = insights_collection.insert_one(recommendations_insight)
+        insights_collection.insert_one(trend_insight)
+        insights_collection.insert_one(recommendations_insight)
 
         mongo_client.close()
 
