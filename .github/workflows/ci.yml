@@ -96,7 +96,7 @@ jobs:
               try:
                   await client.admin.command('ping')
                   print('✓ MongoDB connection successful')
-                  await client.aclose()
+                  client.close()
               except Exception as e:
                   print(f'✗ MongoDB connection failed: {e}')
                   sys.exit(1)
