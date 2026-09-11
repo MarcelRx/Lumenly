@@ -160,6 +160,21 @@ jobs:
         run: |
           cd apps/backend
           python -m pytest tests/ --cov=app --cov-report=xml --cov-report=term
+        env:
+          APP_ENV: development
+          SECRET_KEY: test-secret-key-for-testing-32bytes-min
+          JWT_SECRET: test-jwt-secret-for-testing-32bytes-min
+          JWT_SECRET_RS256_PRIVATE: test-rs256-private-key-for-testing-32bytes-min
+          JWT_SECRET_RS256_PUBLIC: test-rs256-public-key-for-testing-32bytes-min
+          POSTGRES_URL: postgresql+asyncpg://lumenly:lumenly_secure_password_32chars@localhost:5433/lumenly_test
+          MONGODB_URL: mongodb://localhost:27017/lumenly_test
+          REDIS_URL: redis://localhost:6379/1
+          QDRANT_URL: http://localhost:6333
+          GROQ_API_KEY: ""
+          GEMINI_API_KEY: ""
+          OPENAI_API_KEY: ""
+          COHERE_API_KEY: ""
+          ELEVENLABS_API_KEY: ""
 
   lint:
     name: Lint
