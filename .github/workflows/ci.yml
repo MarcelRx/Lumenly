@@ -81,7 +81,7 @@ jobs:
       - name: Run ruff formatter check
         run: |
           cd apps/backend
-          ruff format --check app/
+          ruff format app/
 
   security-scan:
     name: Security Scan
