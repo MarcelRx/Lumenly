@@ -78,7 +78,6 @@ __all__ = [
     "MemorySearchResult",
     "MemoryConsolidationResult",
     "MemoryRetrievalConfig",
-
     # Implementations
     "MultiBackendMemoryStorage",
     "MemoryRetriever",
@@ -92,7 +91,6 @@ __all__ = [
     "MemoryManager",
     "MemorySecurityValidator",
     "MemorySecurityContext",
-
     # Schema
     "MemoryType",
     "MemoryImportance",
@@ -107,7 +105,6 @@ __all__ = [
     "EpisodicMemory",
     "QDRANT_COLLECTIONS",
     "RETENTION_POLICY",
-
     # Validation
     "MemoryValidator",
     "MemoryValidationError",

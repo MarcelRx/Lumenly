@@ -4,6 +4,7 @@ LLM Provider Implementations.
 
 Concrete implementations of LLMProviderInterface for various providers.
 """
+
 import logging
 from typing import Any, AsyncIterator, Dict, List, Optional
 
@@ -28,6 +29,7 @@ class OpenAIProvider(LLMProviderInterface):
     async def initialize(self) -> None:
         try:
             from openai import AsyncOpenAI
+
             self._client = AsyncOpenAI(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
@@ -48,19 +50,14 @@ class OpenAIProvider(LLMProviderInterface):
     ) -> LLMResponse:
         try:
             # Convert LLMMessage to OpenAI format
-            openai_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
+            openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
             # Handle tool messages if present
             for msg in messages:
                 if msg.role == "tool":
-                    openai_messages.append({
-                        "role": "tool",
-                        "tool_call_id": msg.tool_call_id,
-                        "content": msg.content
-                    })
+                    openai_messages.append(
+                        {"role": "tool", "tool_call_id": msg.tool_call_id, "content": msg.content}
+                    )
 
             params = {
                 "model": self.config.model,
@@ -85,7 +82,7 @@ class OpenAIProvider(LLMProviderInterface):
                         "function": {
                             "name": tc.function.name,
                             "arguments": tc.function.arguments,
-                        }
+                        },
                     }
                     for tc in choice.message.tool_calls
                 ]
@@ -98,7 +95,9 @@ class OpenAIProvider(LLMProviderInterface):
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
                     "total_tokens": response.usage.total_tokens,
-                } if response.usage else None,
+                }
+                if response.usage
+                else None,
             )
 
         except Exception as e:
@@ -110,10 +109,7 @@ class OpenAIProvider(LLMProviderInterface):
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncIterator[str]:
         try:
-            openai_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
+            openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
             params = {
                 "model": self.config.model,
@@ -175,6 +171,7 @@ class AnthropicProvider(LLMProviderInterface):
     async def initialize(self) -> None:
         try:
             from anthropic import AsyncAnthropic
+
             self._client = AsyncAnthropic(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
@@ -199,7 +196,8 @@ class AnthropicProvider(LLMProviderInterface):
             system_messages = [msg.content for msg in messages if msg.role == "system"]
             chat_messages = [
                 {"role": msg.role, "content": msg.content}
-                for msg in messages if msg.role != "system"
+                for msg in messages
+                if msg.role != "system"
             ]
 
             params = {
@@ -226,7 +224,7 @@ class AnthropicProvider(LLMProviderInterface):
                         "function": {
                             "name": block.name,
                             "arguments": block.input,
-                        }
+                        },
                     }
                     for block in response.content
                     if block.type == "tool_use"
@@ -245,7 +243,9 @@ class AnthropicProvider(LLMProviderInterface):
                     "prompt_tokens": response.usage.input_tokens,
                     "completion_tokens": response.usage.output_tokens,
                     "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
-                } if response.usage else None,
+                }
+                if response.usage
+                else None,
             )
 
         except Exception as e:
@@ -260,7 +260,8 @@ class AnthropicProvider(LLMProviderInterface):
             system_messages = [msg.content for msg in messages if msg.role == "system"]
             chat_messages = [
                 {"role": msg.role, "content": msg.content}
-                for msg in messages if msg.role != "system"
+                for msg in messages
+                if msg.role != "system"
             ]
 
             params = {
@@ -327,6 +328,7 @@ class GroqProvider(LLMProviderInterface):
     async def initialize(self) -> None:
         try:
             from groq import AsyncGroq
+
             # Initialize with only supported parameters
             # AsyncGroq only supports: api_key, base_url
             init_params = {
@@ -349,23 +351,19 @@ class GroqProvider(LLMProviderInterface):
         tool_choice: Optional[str] = None,
     ) -> LLMResponse:
         import time
+
         start_time = time.time()
 
         try:
             # Convert LLMMessage to Groq format (compatible with OpenAI)
-            groq_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
+            groq_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
             # Handle tool messages
             for msg in messages:
                 if msg.role == "tool":
-                    groq_messages.append({
-                        "role": "tool",
-                        "tool_call_id": msg.tool_call_id,
-                        "content": msg.content
-                    })
+                    groq_messages.append(
+                        {"role": "tool", "tool_call_id": msg.tool_call_id, "content": msg.content}
+                    )
 
             params = {
                 "model": self.config.model,
@@ -390,7 +388,7 @@ class GroqProvider(LLMProviderInterface):
                         "function": {
                             "name": tc.function.name,
                             "arguments": tc.function.arguments,
-                        }
+                        },
                     }
                     for tc in choice.message.tool_calls
                 ]
@@ -403,7 +401,9 @@ class GroqProvider(LLMProviderInterface):
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
                     "total_tokens": response.usage.total_tokens,
-                } if response.usage else None,
+                }
+                if response.usage
+                else None,
             )
 
             # Record metrics
@@ -420,7 +420,9 @@ class GroqProvider(LLMProviderInterface):
 
             if result.usage:
                 llm_input_tokens_total.labels(provider="groq").inc(result.usage["prompt_tokens"])
-                llm_output_tokens_total.labels(provider="groq").inc(result.usage["completion_tokens"])
+                llm_output_tokens_total.labels(provider="groq").inc(
+                    result.usage["completion_tokens"]
+                )
 
             return result
 
@@ -443,10 +445,7 @@ class GroqProvider(LLMProviderInterface):
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncIterator[str]:
         try:
-            groq_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
+            groq_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
             params = {
                 "model": self.config.model,
@@ -538,6 +537,7 @@ class MockLLMProvider(LLMProviderInterface):
         import random
 
         from app.core.config import settings
+
         return [random.random() for _ in range(settings.VECTOR_DIMENSION)]
 
     async def health_check(self) -> bool:
@@ -563,6 +563,7 @@ class LLMProviderFactory:
         # Handle lazy import for Gemini
         if provider_class == "GeminiProvider":
             from .providers_gemini import GeminiProvider
+
             provider_class = GeminiProvider
 
         if not provider_class or isinstance(provider_class, str):

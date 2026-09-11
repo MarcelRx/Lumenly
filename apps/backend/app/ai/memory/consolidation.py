@@ -8,6 +8,7 @@ This module implements background consolidation operations:
 - Keep original references
 - No information loss
 """
+
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -70,10 +71,7 @@ class MemoryConsolidator(IMemoryConsolidator):
         return self.qdrant_client
 
     async def consolidate_similar(
-        self,
-        user_id: str,
-        memory_type: MemoryType,
-        similarity_threshold: Optional[float] = None
+        self, user_id: str, memory_type: MemoryType, similarity_threshold: Optional[float] = None
     ) -> List[MemoryConsolidationResult]:
         """
         Consolidate similar memories of a given type.
@@ -102,7 +100,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 user_id=user_id,
                 memory_type=memory_type,
                 limit=1000,  # Large limit for consolidation
-                offset=0
+                offset=0,
             )
 
             if len(memories) < 2:
@@ -121,16 +119,12 @@ class MemoryConsolidator(IMemoryConsolidator):
             for group in similarity_groups:
                 if len(group) > 1:  # Only consolidate groups with multiple memories
                     result = await self._consolidate_group(
-                        user_id=user_id,
-                        memories=group,
-                        strategy="similarity_merge"
+                        user_id=user_id, memories=group, strategy="similarity_merge"
                     )
                     if result:
                         results.append(result)
 
-            logger.info(
-                f"Consolidated {len(results)} memory groups for user {user_id}"
-            )
+            logger.info(f"Consolidated {len(results)} memory groups for user {user_id}")
             return results
 
         except Exception as e:
@@ -138,9 +132,7 @@ class MemoryConsolidator(IMemoryConsolidator):
             return results
 
     async def _group_similar_memories(
-        self,
-        memories: List[MemoryRecord],
-        threshold: float
+        self, memories: List[MemoryRecord], threshold: float
     ) -> List[List[MemoryRecord]]:
         """
         Group memories by semantic similarity using optimized clustering.
@@ -181,8 +173,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 similarity = 0.0
                 if memory.embedding_vector and other_memory.embedding_vector:
                     similarity = await self._calculate_cosine_similarity(
-                        memory.embedding_vector,
-                        other_memory.embedding_vector
+                        memory.embedding_vector, other_memory.embedding_vector
                     )
 
                 # If similar enough, add to group
@@ -200,11 +191,7 @@ class MemoryConsolidator(IMemoryConsolidator):
 
         return groups
 
-    async def _calculate_cosine_similarity(
-        self,
-        vec1: List[float],
-        vec2: List[float]
-    ) -> float:
+    async def _calculate_cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors."""
         import math
 
@@ -219,10 +206,7 @@ class MemoryConsolidator(IMemoryConsolidator):
         return (cosine_sim + 1) / 2  # Normalize to [0, 1]
 
     async def _consolidate_group(
-        self,
-        user_id: str,
-        memories: List[MemoryRecord],
-        strategy: str
+        self, user_id: str, memories: List[MemoryRecord], strategy: str
     ) -> Optional[MemoryConsolidationResult]:
         """
         Consolidate a group of memories.
@@ -249,8 +233,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 MemoryImportance.TEMPORARY: 1,
             }
             max_importance = max(
-                memories,
-                key=lambda m: importance_scores.get(m.metadata.importance, 0)
+                memories, key=lambda m: importance_scores.get(m.metadata.importance, 0)
             )
 
             # Create consolidated memory
@@ -260,9 +243,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 memory_type=memory_type,
                 importance=max_importance.metadata.importance,
                 source="system_consolidated",
-                tags=list(set(
-                    tag for mem in memories for tag in mem.metadata.tags
-                )),
+                tags=list(set(tag for mem in memories for tag in mem.metadata.tags)),
                 related_memories=[m.id for m in memories],
                 confidence=sum(m.metadata.confidence for m in memories) / len(memories),
             )
@@ -272,8 +253,7 @@ class MemoryConsolidator(IMemoryConsolidator):
             if all(m.embedding_vector for m in memories):
                 vectors = [m.embedding_vector for m in memories]
                 consolidated_embedding = [
-                    sum(v[i] for v in vectors) / len(vectors)
-                    for i in range(len(vectors[0]))
+                    sum(v[i] for v in vectors) / len(vectors) for i in range(len(vectors[0]))
                 ]
 
             consolidated_memory = MemoryRecord(
@@ -298,7 +278,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                         "consolidated_into": consolidated_id,
                         "archived": True,
                         "archived_at": datetime.now(timezone.utc).isoformat(),
-                    }
+                    },
                 )
 
             result = MemoryConsolidationResult(
@@ -308,9 +288,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 timestamp=datetime.now(timezone.utc),
             )
 
-            logger.info(
-                f"Consolidated {len(memories)} memories into {consolidated_id}"
-            )
+            logger.info(f"Consolidated {len(memories)} memories into {consolidated_id}")
             return result
 
         except Exception as e:
@@ -318,9 +296,7 @@ class MemoryConsolidator(IMemoryConsolidator):
             return None
 
     async def summarize_memories(
-        self,
-        memory_ids: List[str],
-        user_id: str
+        self, memory_ids: List[str], user_id: str
     ) -> Optional[MemoryRecord]:
         """
         Create a summary memory from multiple memories.
@@ -372,20 +348,14 @@ class MemoryConsolidator(IMemoryConsolidator):
             # Store summary memory
             await self.storage.store(summary_memory)
 
-            logger.info(
-                f"Created summary memory {summary_id} from {len(memories)} memories"
-            )
+            logger.info(f"Created summary memory {summary_id} from {len(memories)} memories")
             return summary_memory
 
         except Exception as e:
             logger.error(f"Failed to summarize memories: {e}")
             return None
 
-    async def merge_memories(
-        self,
-        memory_ids: List[str],
-        user_id: str
-    ) -> Optional[MemoryRecord]:
+    async def merge_memories(self, memory_ids: List[str], user_id: str) -> Optional[MemoryRecord]:
         """
         Merge multiple memories into a single comprehensive memory.
 
@@ -420,8 +390,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 MemoryImportance.TEMPORARY: 1,
             }
             max_importance = max(
-                memories,
-                key=lambda m: importance_scores.get(m.metadata.importance, 0)
+                memories, key=lambda m: importance_scores.get(m.metadata.importance, 0)
             )
 
             metadata = MemoryMetadata(
@@ -429,9 +398,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 memory_type=memory_type,
                 importance=max_importance.metadata.importance,
                 source="system_merged",
-                tags=list(set(
-                    tag for mem in memories for tag in mem.metadata.tags
-                )),
+                tags=list(set(tag for mem in memories for tag in mem.metadata.tags)),
                 related_memories=memory_ids,
                 confidence=sum(m.metadata.confidence for m in memories) / len(memories),
             )
@@ -441,8 +408,7 @@ class MemoryConsolidator(IMemoryConsolidator):
             if all(m.embedding_vector for m in memories):
                 vectors = [m.embedding_vector for m in memories]
                 merged_embedding = [
-                    sum(v[i] for v in vectors) / len(vectors)
-                    for i in range(len(vectors[0]))
+                    sum(v[i] for v in vectors) / len(vectors) for i in range(len(vectors[0]))
                 ]
 
             merged_memory = MemoryRecord(
@@ -467,12 +433,10 @@ class MemoryConsolidator(IMemoryConsolidator):
                         "merged_into": merged_id,
                         "archived": True,
                         "archived_at": datetime.now(timezone.utc).isoformat(),
-                    }
+                    },
                 )
 
-            logger.info(
-                f"Merged {len(memories)} memories into {merged_id}"
-            )
+            logger.info(f"Merged {len(memories)} memories into {merged_id}")
             return merged_memory
 
         except Exception as e:
@@ -501,11 +465,7 @@ class MemoryConsolidator(IMemoryConsolidator):
         else:
             return "\n\n".join(merged_parts)
 
-    async def cleanup_archived_memories(
-        self,
-        user_id: str,
-        days_old: int = 30
-    ) -> int:
+    async def cleanup_archived_memories(self, user_id: str, days_old: int = 30) -> int:
         """
         Clean up archived memories older than specified days.
 
@@ -520,17 +480,13 @@ class MemoryConsolidator(IMemoryConsolidator):
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
 
             # Get all memories for user
-            memories = await self.storage.list_user_memories(
-                user_id=user_id,
-                limit=10000,
-                offset=0
-            )
+            memories = await self.storage.list_user_memories(user_id=user_id, limit=10000, offset=0)
 
             # Find archived memories older than threshold
             old_archived = []
             for memory in memories:
                 # Check if memory is archived
-                if hasattr(memory.metadata, 'archived') and memory.metadata.archived:
+                if hasattr(memory.metadata, "archived") and memory.metadata.archived:
                     if memory.created_at < cutoff_date:
                         old_archived.append(memory.id)
 
@@ -540,9 +496,7 @@ class MemoryConsolidator(IMemoryConsolidator):
                 if await self.storage.delete(memory_id, user_id):
                     deleted_count += 1
 
-            logger.info(
-                f"Cleaned up {deleted_count} archived memories for user {user_id}"
-            )
+            logger.info(f"Cleaned up {deleted_count} archived memories for user {user_id}")
             return deleted_count
 
         except Exception as e:

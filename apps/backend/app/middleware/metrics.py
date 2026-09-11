@@ -10,6 +10,7 @@ Integrates with existing middleware architecture to collect:
 
 All metrics follow low-cardinality principles and never expose sensitive data.
 """
+
 import time
 from typing import Callable
 
@@ -35,27 +36,27 @@ def get_route_template(request: Request) -> str:
     if route_path and hasattr(route_path, "path"):
         route_template = route_path.path
         # If this contains parameters, it's the template we want
-        if '{' in route_template and '}' in route_template:
+        if "{" in route_template and "}" in route_template:
             return route_template
         # If no parameters, it might be a static route
         return route_template
 
     # More robust fallback: try to match against registered routes
     request_path = request.url.path
-    request_segments = request_path.split('/')
+    request_segments = request_path.split("/")
 
     for route in request.app.routes:
         if hasattr(route, "path") and hasattr(route, "methods"):
             if request.method in route.methods:
                 route_path_template = route.path
-                route_segments = route_path_template.split('/')
+                route_segments = route_path_template.split("/")
 
                 # Check if segment counts match
                 if len(route_segments) == len(request_segments):
                     # Check if non-parameter segments match
                     match = True
                     for route_seg, req_seg in zip(route_segments, request_segments):
-                        if route_seg.startswith('{') and route_seg.endswith('}'):
+                        if route_seg.startswith("{") and route_seg.endswith("}"):
                             # This is a parameter, skip matching
                             continue
                         if route_seg != req_seg:
@@ -67,33 +68,33 @@ def get_route_template(request: Request) -> str:
 
     # Ultimate fallback: FORCE normalization by replacing any potentially dynamic segments
     # This is critical for preventing unbounded cardinality on 404 routes
-    segments = request_path.split('/')
+    segments = request_path.split("/")
     normalized_segments = []
     for seg in segments:
         # Replace numeric segments with placeholders
         if seg.isdigit():
-            normalized_segments.append('{id}')
+            normalized_segments.append("{id}")
         # Replace UUID-like segments with placeholders
-        elif len(seg) == 36 and seg.count('-') == 4:
-            normalized_segments.append('{uuid}')
+        elif len(seg) == 36 and seg.count("-") == 4:
+            normalized_segments.append("{uuid}")
         # Replace MongoDB ObjectId-like segments (24 hex chars)
         elif len(seg) == 24:
             try:
                 int(seg, 16)  # Try to parse as hex
-                normalized_segments.append('{id}')
+                normalized_segments.append("{id}")
             except ValueError:
                 # Not hex, might still be an ID
                 if len(seg) > 8 and seg.isalnum():
-                    normalized_segments.append('{id}')
+                    normalized_segments.append("{id}")
                 else:
                     normalized_segments.append(seg)
         # Replace long alphanumeric segments that might be IDs
         elif len(seg) > 8 and seg.isalnum():
-            normalized_segments.append('{id}')
+            normalized_segments.append("{id}")
         else:
             normalized_segments.append(seg)
 
-    return '/'.join(normalized_segments)
+    return "/".join(normalized_segments)
 
 
 async def metrics_middleware(request: Request, call_next: Callable) -> Response:
@@ -130,16 +131,10 @@ async def metrics_middleware(request: Request, call_next: Callable) -> Response:
         status_code = str(response.status_code)
 
         # Record metrics
-        http_requests_total.labels(
-            method=method,
-            route=route,
-            status_code=status_code
-        ).inc()
+        http_requests_total.labels(method=method, route=route, status_code=status_code).inc()
 
         http_request_duration_seconds.labels(
-            method=method,
-            route=route,
-            status_code=status_code
+            method=method, route=route, status_code=status_code
         ).observe(duration)
 
         return response

@@ -48,9 +48,7 @@ def proactive_nudger_task(self):
 
         # Combine unique users who need nudges
         all_users_needing_nudges = set(
-            users_with_missed_habits +
-            users_with_wellness_drops +
-            users_with_upcoming_deadlines
+            users_with_missed_habits + users_with_wellness_drops + users_with_upcoming_deadlines
         )
 
         logger.info(f"Total unique users needing nudges: {len(all_users_needing_nudges)}")
@@ -76,13 +74,13 @@ def proactive_nudger_task(self):
         return {
             "status": "success",
             "users_processed": len(all_users_needing_nudges),
-            "nudges_delivered": nudges_delivered
+            "nudges_delivered": nudges_delivered,
         }
 
     except Exception as e:
         logger.error(f"Proactive Nudger task failed: {e}", exc_info=True)
         # Retry with exponential backoff
-        raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+        raise self.retry(exc=e, countdown=60 * (2**self.request.retries))
 
 
 def _get_users_with_missed_habits() -> list[uuid.UUID]:
@@ -102,10 +100,10 @@ def _get_users_with_missed_habits() -> list[uuid.UUID]:
         )
 
         # Test connection
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
         # Get database name from URL
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
         habits_collection = db["habits"]
 
@@ -114,7 +112,7 @@ def _get_users_with_missed_habits() -> list[uuid.UUID]:
         pipeline = [
             {"$match": {"streak_count": {"$lt": 3}}},
             {"$group": {"_id": "$user_id"}},
-            {"$project": {"user_id": "$_id", "_id": 0}}
+            {"$project": {"user_id": "$_id", "_id": 0}},
         ]
 
         results = list(habits_collection.aggregate(pipeline))
@@ -150,9 +148,9 @@ def _get_users_with_wellness_drops() -> list[uuid.UUID]:
             connectTimeoutMS=5000,
         )
 
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
         journal_collection = db["journal_entries"]
 
@@ -161,27 +159,30 @@ def _get_users_with_wellness_drops() -> list[uuid.UUID]:
 
         # Aggregate to find users with declining mood scores
         pipeline = [
-            {"$match": {
-                "created_at": {"$gte": week_ago},
-                "mood_score": {"$ne": None}
-            }},
+            {"$match": {"created_at": {"$gte": week_ago}, "mood_score": {"$ne": None}}},
             {"$sort": {"created_at": 1}},
-            {"$group": {
-                "_id": "$user_id",
-                "first_score": {"$first": "$mood_score"},
-                "last_score": {"$last": "$mood_score"},
-                "entry_count": {"$sum": 1}
-            }},
-            {"$match": {
-                "entry_count": {"$gte": 2},  # Need at least 2 entries to calculate trend
-                "$expr": {"$lt": ["$last_score", "$first_score"]}  # Declining
-            }},
-            {"$project": {
-                "user_id": "$_id",
-                "score_drop": {"$subtract": ["$first_score", "$last_score"]},
-                "_id": 0
-            }},
-            {"$match": {"score_drop": {"$gte": 1.5}}}  # Significant drop
+            {
+                "$group": {
+                    "_id": "$user_id",
+                    "first_score": {"$first": "$mood_score"},
+                    "last_score": {"$last": "$mood_score"},
+                    "entry_count": {"$sum": 1},
+                }
+            },
+            {
+                "$match": {
+                    "entry_count": {"$gte": 2},  # Need at least 2 entries to calculate trend
+                    "$expr": {"$lt": ["$last_score", "$first_score"]},  # Declining
+                }
+            },
+            {
+                "$project": {
+                    "user_id": "$_id",
+                    "score_drop": {"$subtract": ["$first_score", "$last_score"]},
+                    "_id": 0,
+                }
+            },
+            {"$match": {"score_drop": {"$gte": 1.5}}},  # Significant drop
         ]
 
         results = list(journal_collection.aggregate(pipeline))
@@ -216,9 +217,9 @@ def _get_users_with_upcoming_deadlines() -> list[uuid.UUID]:
             connectTimeoutMS=5000,
         )
 
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
         goals_collection = db["goals"]
 
@@ -226,10 +227,7 @@ def _get_users_with_upcoming_deadlines() -> list[uuid.UUID]:
         upcoming_deadline = datetime.now() + timedelta(days=7)
 
         # Query for uncompleted goals with upcoming deadlines
-        query = {
-            "is_completed": False,
-            "target_date": {"$lte": upcoming_deadline}
-        }
+        query = {"is_completed": False, "target_date": {"$lte": upcoming_deadline}}
 
         # Get unique user_ids
         results = list(goals_collection.find(query, {"user_id": 1}).distinct("user_id"))
@@ -264,9 +262,9 @@ def _generate_personalized_nudge(user_id: uuid.UUID) -> str:
         # In production, this would use a synchronous LLM provider or call an API
         # that doesn't require async/await
 
-        missed_habits = context.get('missed_habits', 0)
-        wellness_score = context.get('wellness_score', 70)
-        upcoming_deadlines = context.get('upcoming_deadlines', 0)
+        missed_habits = context.get("missed_habits", 0)
+        wellness_score = context.get("wellness_score", 70)
+        upcoming_deadlines = context.get("upcoming_deadlines", 0)
 
         # Generate personalized nudge based on context
         if missed_habits > 0:
@@ -298,40 +296,39 @@ def _gather_user_context(user_id: uuid.UUID) -> dict:
             connectTimeoutMS=5000,
         )
 
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
 
         # Get habit streak info
         habits_collection = db["habits"]
-        habit_info = list(habits_collection.find(
-            {"user_id": user_id},
-            {"streak_count": 1}
-        ))
-        avg_streak = sum(h.get("streak_count", 0) for h in habit_info) / len(habit_info) if habit_info else 0
+        habit_info = list(habits_collection.find({"user_id": user_id}, {"streak_count": 1}))
+        avg_streak = (
+            sum(h.get("streak_count", 0) for h in habit_info) / len(habit_info) if habit_info else 0
+        )
 
         # Get wellness info (average recent mood score)
         journal_collection = db["journal_entries"]
         week_ago = datetime.now() - timedelta(days=7)
-        recent_journals = list(journal_collection.find(
-            {
-                "user_id": user_id,
-                "created_at": {"$gte": week_ago},
-                "mood_score": {"$ne": None}
-            },
-            {"mood_score": 1}
-        ))
-        avg_mood = sum(j.get("mood_score", 5) for j in recent_journals) / len(recent_journals) if recent_journals else 70
+        recent_journals = list(
+            journal_collection.find(
+                {"user_id": user_id, "created_at": {"$gte": week_ago}, "mood_score": {"$ne": None}},
+                {"mood_score": 1},
+            )
+        )
+        avg_mood = (
+            sum(j.get("mood_score", 5) for j in recent_journals) / len(recent_journals)
+            if recent_journals
+            else 70
+        )
 
         # Get upcoming goals
         goals_collection = db["goals"]
         upcoming_deadline = datetime.now() + timedelta(days=7)
-        upcoming_goals = goals_collection.count_documents({
-            "user_id": user_id,
-            "is_completed": False,
-            "target_date": {"$lte": upcoming_deadline}
-        })
+        upcoming_goals = goals_collection.count_documents(
+            {"user_id": user_id, "is_completed": False, "target_date": {"$lte": upcoming_deadline}}
+        )
 
         mongo_client.close()
 
@@ -339,7 +336,7 @@ def _gather_user_context(user_id: uuid.UUID) -> dict:
             "missed_habits": sum(1 for h in habit_info if h.get("streak_count", 0) < 3),
             "wellness_score": avg_mood * 10,  # Convert to 0-100 scale
             "upcoming_deadlines": upcoming_goals,
-            "average_streak": avg_streak
+            "average_streak": avg_streak,
         }
 
     except Exception as e:
@@ -348,7 +345,7 @@ def _gather_user_context(user_id: uuid.UUID) -> dict:
             "missed_habits": 0,
             "wellness_score": 70,
             "upcoming_deadlines": 0,
-            "average_streak": 0
+            "average_streak": 0,
         }
 
 
@@ -367,9 +364,9 @@ def _deliver_nudge(user_id: uuid.UUID, nudge_content: str) -> None:
             connectTimeoutMS=5000,
         )
 
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
         messages_collection = db["in_app_messages"]
 
@@ -380,10 +377,7 @@ def _deliver_nudge(user_id: uuid.UUID, nudge_content: str) -> None:
             "content": nudge_content,
             "created_at": datetime.now(),
             "read": False,
-            "metadata": {
-                "source": "proactive_nudger",
-                "priority": "normal"
-            }
+            "metadata": {"source": "proactive_nudger", "priority": "normal"},
         }
 
         # Insert message

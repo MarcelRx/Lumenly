@@ -58,7 +58,5 @@ async def close_qdrant() -> None:
 def get_qdrant_client() -> AsyncQdrantClient:
     """Return the initialized Qdrant client for use in services and endpoints."""
     if qdrant_client is None:
-        raise RuntimeError(
-            "Qdrant client is not initialized or the connection failed at startup."
-        )
+        raise RuntimeError("Qdrant client is not initialized or the connection failed at startup.")
     return qdrant_client

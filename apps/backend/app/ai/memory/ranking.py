@@ -9,6 +9,7 @@ This module implements ranking algorithms based on:
 - Semantic similarity (vector similarity to query)
 - User relevance (custom user-specific factors)
 """
+
 import logging
 import math
 from datetime import datetime, timezone
@@ -54,7 +55,7 @@ class MemoryRanker(IMemoryRanker):
 
     # Time decay constants
     RECENCY_HALF_LIFE_DAYS = 30  # Half-life for recency scoring
-    FREQUENCY_DECAY_DAYS = 7    # Decay for frequency scoring
+    FREQUENCY_DECAY_DAYS = 7  # Decay for frequency scoring
 
     def __init__(
         self,
@@ -76,8 +77,11 @@ class MemoryRanker(IMemoryRanker):
         """
         # Normalize weights to sum to 1
         total_weight = (
-            importance_weight + recency_weight + frequency_weight +
-            semantic_weight + user_relevance_weight
+            importance_weight
+            + recency_weight
+            + frequency_weight
+            + semantic_weight
+            + user_relevance_weight
         )
 
         self.importance_weight = importance_weight / total_weight
@@ -96,10 +100,7 @@ class MemoryRanker(IMemoryRanker):
         )
 
     async def rank(
-        self,
-        memories: List[MemoryRecord],
-        query: str,
-        query_vector: Optional[List[float]] = None
+        self, memories: List[MemoryRecord], query: str, query_vector: Optional[List[float]] = None
     ) -> List[MemorySearchResult]:
         """
         Rank memories based on relevance to the query.
@@ -130,9 +131,7 @@ class MemoryRanker(IMemoryRanker):
                 # Calculate semantic similarity if query vector is available
                 semantic_score = 0.0
                 if query_has_vector and memory.embedding_vector:
-                    semantic_score = self._calculate_semantic_similarity_sync(
-                        memory, query_vector
-                    )
+                    semantic_score = self._calculate_semantic_similarity_sync(memory, query_vector)
                 elif query_has_vector:
                     # If memory has no embedding but query does, use default low score
                     semantic_score = 0.1
@@ -142,11 +141,11 @@ class MemoryRanker(IMemoryRanker):
 
                 # Calculate weighted composite score (optimized multiplication)
                 composite_score = (
-                    self.importance_weight * importance_score +
-                    self.recency_weight * recency_score +
-                    self.frequency_weight * frequency_score +
-                    self.semantic_weight * semantic_score +
-                    self.user_relevance_weight * user_relevance_score
+                    self.importance_weight * importance_score
+                    + self.recency_weight * recency_score
+                    + self.frequency_weight * frequency_score
+                    + self.semantic_weight * semantic_score
+                    + self.user_relevance_weight * user_relevance_score
                 )
 
                 # Create search result with relevance factors
@@ -163,7 +162,7 @@ class MemoryRanker(IMemoryRanker):
                         memory=memory,
                         score=composite_score,
                         rank=0,  # Will be assigned after sorting
-                        relevance_factors=relevance_factors
+                        relevance_factors=relevance_factors,
                     )
                 )
 
@@ -186,8 +185,7 @@ class MemoryRanker(IMemoryRanker):
         Synchronous version of importance score calculation for performance.
         """
         base_score = self.IMPORTANCE_SCORES.get(
-            memory.metadata.importance,
-            self.IMPORTANCE_SCORES[MemoryImportance.MEDIUM]
+            memory.metadata.importance, self.IMPORTANCE_SCORES[MemoryImportance.MEDIUM]
         )
 
         # Boost for high access count (diminishing returns)
@@ -233,9 +231,7 @@ class MemoryRanker(IMemoryRanker):
         return frequency_score
 
     def _calculate_semantic_similarity_sync(
-        self,
-        memory: MemoryRecord,
-        query_vector: List[float]
+        self, memory: MemoryRecord, query_vector: List[float]
     ) -> float:
         """
         Synchronous version of semantic similarity calculation for performance.
@@ -298,9 +294,7 @@ class MemoryRanker(IMemoryRanker):
         return self._calculate_frequency_score_sync(memory)
 
     async def calculate_semantic_similarity(
-        self,
-        memory: MemoryRecord,
-        query_vector: List[float]
+        self, memory: MemoryRecord, query_vector: List[float]
     ) -> float:
         """
         Calculate semantic similarity between memory and query.
@@ -310,11 +304,7 @@ class MemoryRanker(IMemoryRanker):
         """
         return self._calculate_semantic_similarity_sync(memory, query_vector)
 
-    async def _calculate_user_relevance_score(
-        self,
-        memory: MemoryRecord,
-        query: str
-    ) -> float:
+    async def _calculate_user_relevance_score(self, memory: MemoryRecord, query: str) -> float:
         """
         Calculate user relevance score.
 
@@ -326,10 +316,7 @@ class MemoryRanker(IMemoryRanker):
         return self._calculate_user_relevance_score_sync(memory, query)
 
     async def calculate_composite_score(
-        self,
-        memory: MemoryRecord,
-        query: str,
-        query_vector: Optional[List[float]] = None
+        self, memory: MemoryRecord, query: str, query_vector: Optional[List[float]] = None
     ) -> float:
         """
         Calculate composite score for a single memory.
@@ -352,16 +339,29 @@ class MemoryRanker(IMemoryRanker):
 
         Useful for A/B testing or user personalization.
         """
-        self.importance_weight = importance_weight if importance_weight is not None else self.importance_weight
+        self.importance_weight = (
+            importance_weight if importance_weight is not None else self.importance_weight
+        )
         self.recency_weight = recency_weight if recency_weight is not None else self.recency_weight
-        self.frequency_weight = frequency_weight if frequency_weight is not None else self.frequency_weight
-        self.semantic_weight = semantic_weight if semantic_weight is not None else self.semantic_weight
-        self.user_relevance_weight = user_relevance_weight if user_relevance_weight is not None else self.user_relevance_weight
+        self.frequency_weight = (
+            frequency_weight if frequency_weight is not None else self.frequency_weight
+        )
+        self.semantic_weight = (
+            semantic_weight if semantic_weight is not None else self.semantic_weight
+        )
+        self.user_relevance_weight = (
+            user_relevance_weight
+            if user_relevance_weight is not None
+            else self.user_relevance_weight
+        )
 
         # Normalize weights
         total_weight = (
-            self.importance_weight + self.recency_weight + self.frequency_weight +
-            self.semantic_weight + self.user_relevance_weight
+            self.importance_weight
+            + self.recency_weight
+            + self.frequency_weight
+            + self.semantic_weight
+            + self.user_relevance_weight
         )
 
         if total_weight > 0:

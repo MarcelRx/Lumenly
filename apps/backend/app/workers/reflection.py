@@ -47,11 +47,7 @@ def end_day_reflection_task(self, user_id: str, time_zone: str):
         logger.info(f"Generated {len(recommendations)} recommendations for user {user_id}")
 
         # Store insights to ai_insights table
-        insights_stored = _store_reflection_insights(
-            user_uuid,
-            sentiment_analysis,
-            recommendations
-        )
+        insights_stored = _store_reflection_insights(user_uuid, sentiment_analysis, recommendations)
         logger.info(f"Stored {insights_stored} insights for user {user_id}")
 
         logger.info(f"End-Day Reflection task completed for user {user_id}")
@@ -59,13 +55,13 @@ def end_day_reflection_task(self, user_id: str, time_zone: str):
             "status": "success",
             "user_id": user_id,
             "insights_stored": insights_stored,
-            "sentiment_trend": sentiment_analysis.get("trend", "unknown")
+            "sentiment_trend": sentiment_analysis.get("trend", "unknown"),
         }
 
     except Exception as e:
         logger.error(f"End-Day Reflection task failed for user {user_id}: {e}", exc_info=True)
         # Retry with exponential backoff
-        raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+        raise self.retry(exc=e, countdown=60 * (2**self.request.retries))
 
 
 def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
@@ -83,20 +79,19 @@ def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
             connectTimeoutMS=5000,
         )
 
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
         journal_collection = db["journal_entries"]
 
         # Get journal entries from the last 7 days
         week_ago = datetime.now() - timedelta(days=7)
-        journal_entries = list(journal_collection.find(
-            {
-                "user_id": user_id,
-                "created_at": {"$gte": week_ago}
-            }
-        ).sort("created_at", 1))
+        journal_entries = list(
+            journal_collection.find({"user_id": user_id, "created_at": {"$gte": week_ago}}).sort(
+                "created_at", 1
+            )
+        )
 
         if not journal_entries:
             return {
@@ -104,7 +99,7 @@ def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
                 "average_sentiment": 0.5,
                 "sentiment_change": 0.0,
                 "journal_entries_analyzed": 0,
-                "time_period": "last_7_days"
+                "time_period": "last_7_days",
             }
 
         # Analyze mood scores (normalize to 0-1 range)
@@ -121,7 +116,7 @@ def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
                 "average_sentiment": 0.5,
                 "sentiment_change": 0.0,
                 "journal_entries_analyzed": len(journal_entries),
-                "time_period": "last_7_days"
+                "time_period": "last_7_days",
             }
 
         # Calculate average sentiment
@@ -151,7 +146,7 @@ def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
             "average_sentiment": average_sentiment,
             "sentiment_change": sentiment_change,
             "journal_entries_analyzed": len(journal_entries),
-            "time_period": "last_7_days"
+            "time_period": "last_7_days",
         }
 
     except (ConnectionFailure, ServerSelectionTimeoutError) as e:
@@ -161,7 +156,7 @@ def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
             "average_sentiment": 0.5,
             "sentiment_change": 0.0,
             "journal_entries_analyzed": 0,
-            "time_period": "last_7_days"
+            "time_period": "last_7_days",
         }
     except Exception as e:
         logger.error(f"Failed to analyze journal sentiment for user {user_id}: {e}")
@@ -170,7 +165,7 @@ def _analyze_journal_sentiment(user_id: uuid.UUID) -> dict:
             "average_sentiment": 0.5,
             "sentiment_change": 0.0,
             "journal_entries_analyzed": 0,
-            "time_period": "last_7_days"
+            "time_period": "last_7_days",
         }
 
 
@@ -189,43 +184,55 @@ def _generate_recommendations(user_id: uuid.UUID, sentiment_analysis: dict) -> l
 
     # Base recommendations on trend and sentiment
     if trend == "improving":
-        recommendations.extend([
-            "Continue your current journaling practice - it's working well!",
-            "Consider sharing your progress with a trusted friend or family member",
-            "Try adding a gratitude component to your routine to amplify positivity"
-        ])
+        recommendations.extend(
+            [
+                "Continue your current journaling practice - it's working well!",
+                "Consider sharing your progress with a trusted friend or family member",
+                "Try adding a gratitude component to your routine to amplify positivity",
+            ]
+        )
     elif trend == "declining":
-        recommendations.extend([
-            "Remember that it's okay to have difficult days - self-compassion is important",
-            "Try a brief meditation or breathing exercise before journaling",
-            "Focus on small, achievable goals for tomorrow rather than overwhelming yourself"
-        ])
+        recommendations.extend(
+            [
+                "Remember that it's okay to have difficult days - self-compassion is important",
+                "Try a brief meditation or breathing exercise before journaling",
+                "Focus on small, achievable goals for tomorrow rather than overwhelming yourself",
+            ]
+        )
     else:  # stable
-        recommendations.extend([
-            "Maintain your current routine - consistency is key",
-            "Try varying your journaling prompts to gain fresh perspectives",
-            "Consider tracking additional metrics like sleep quality or energy levels"
-        ])
+        recommendations.extend(
+            [
+                "Maintain your current routine - consistency is key",
+                "Try varying your journaling prompts to gain fresh perspectives",
+                "Consider tracking additional metrics like sleep quality or energy levels",
+            ]
+        )
 
     # Add sentiment-specific recommendations
     if average_sentiment < 0.4:  # Low sentiment
-        recommendations.append("If you're feeling persistently low, consider reaching out to a mental health professional")
+        recommendations.append(
+            "If you're feeling persistently low, consider reaching out to a mental health professional"
+        )
     elif average_sentiment > 0.7:  # High sentiment
-        recommendations.append("Your positive outlook is great - consider setting slightly more challenging goals")
+        recommendations.append(
+            "Your positive outlook is great - consider setting slightly more challenging goals"
+        )
 
     # Add journaling frequency recommendations
     if journal_count < 3:
-        recommendations.append("Try to journal more frequently - even brief entries can be valuable")
+        recommendations.append(
+            "Try to journal more frequently - even brief entries can be valuable"
+        )
     elif journal_count > 7:
-        recommendations.append("Your consistent journaling is excellent - consider exploring deeper reflection prompts")
+        recommendations.append(
+            "Your consistent journaling is excellent - consider exploring deeper reflection prompts"
+        )
 
     return recommendations[:5]  # Limit to top 5 recommendations
 
 
 def _store_reflection_insights(
-    user_id: uuid.UUID,
-    sentiment_analysis: dict,
-    recommendations: list[str]
+    user_id: uuid.UUID, sentiment_analysis: dict, recommendations: list[str]
 ) -> int:
     """
     Store reflection insights to ai_insights table.
@@ -241,9 +248,9 @@ def _store_reflection_insights(
             connectTimeoutMS=5000,
         )
 
-        mongo_client.admin.command('ping')
+        mongo_client.admin.command("ping")
 
-        db_name = settings.MONGODB_URL.split('/')[-1] if '/' in settings.MONGODB_URL else 'lumenly'
+        db_name = settings.MONGODB_URL.split("/")[-1] if "/" in settings.MONGODB_URL else "lumenly"
         db = mongo_client[db_name]
         insights_collection = db["ai_insights"]
 
@@ -260,13 +267,15 @@ def _store_reflection_insights(
                 "average_sentiment": sentiment_analysis.get("average_sentiment", 0.5),
                 "sentiment_change": sentiment_analysis.get("sentiment_change", 0.0),
                 "journal_entries_analyzed": sentiment_analysis.get("journal_entries_analyzed", 0),
-                "time_period": sentiment_analysis.get("time_period", "last_7_days")
+                "time_period": sentiment_analysis.get("time_period", "last_7_days"),
             },
-            "confidence": 0.8 if sentiment_analysis.get("journal_entries_analyzed", 0) >= 3 else 0.5,
+            "confidence": 0.8
+            if sentiment_analysis.get("journal_entries_analyzed", 0) >= 3
+            else 0.5,
             "session_id": None,
             "generated_at": datetime.now(),
             "expires_at": expires_at,
-            "created_at": datetime.now()
+            "created_at": datetime.now(),
         }
 
         # Create recommendations insight
@@ -277,13 +286,13 @@ def _store_reflection_insights(
             "payload": {
                 "recommendations": recommendations,
                 "trend_context": sentiment_analysis.get("trend", "unknown"),
-                "priority": "high" if sentiment_analysis.get("trend") == "declining" else "normal"
+                "priority": "high" if sentiment_analysis.get("trend") == "declining" else "normal",
             },
             "confidence": 0.7,
             "session_id": None,
             "generated_at": datetime.now(),
             "expires_at": expires_at,
-            "created_at": datetime.now()
+            "created_at": datetime.now(),
         }
 
         # Insert insights
@@ -337,17 +346,11 @@ def schedule_reflection_tasks():
                 logger.info(f"Scheduled reflection task for user {user_id} in {time_zone}")
 
         logger.info(f"Scheduled {tasks_scheduled} reflection tasks")
-        return {
-            "status": "success",
-            "tasks_scheduled": tasks_scheduled
-        }
+        return {"status": "success", "tasks_scheduled": tasks_scheduled}
 
     except Exception as e:
         logger.error(f"Failed to schedule reflection tasks: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
 
 
 def _get_all_users_with_time_zones() -> list[tuple[uuid.UUID, str]]:
@@ -411,6 +414,7 @@ def _is_local_midnight_approaching(time_zone: str) -> bool:
         # If we've passed midnight today, use tomorrow's midnight
         if local_now >= local_midnight:
             from datetime import timedelta
+
             local_midnight += timedelta(days=1)
 
         # Check if midnight is within the next hour

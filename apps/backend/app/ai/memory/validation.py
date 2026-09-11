@@ -13,6 +13,7 @@ This module implements production-grade input validation:
 - Malformed metadata
 - Oversized JSON
 """
+
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -25,51 +26,61 @@ logger = logging.getLogger(__name__)
 
 class MemoryValidationError(Exception):
     """Base exception for memory validation errors."""
+
     pass
 
 
 class MemorySizeExceededError(MemoryValidationError):
     """Memory content size exceeds maximum allowed."""
+
     pass
 
 
 class MetadataSizeExceededError(MemoryValidationError):
     """Metadata size exceeds maximum allowed."""
+
     pass
 
 
 class InvalidEmbeddingDimensionsError(MemoryValidationError):
     """Embedding vector has invalid dimensions."""
+
     pass
 
 
 class ChunkCountExceededError(MemoryValidationError):
     """Too many chunks in document processing."""
+
     pass
 
 
 class TokenLimitExceededError(MemoryValidationError):
     """Content exceeds token limit."""
+
     pass
 
 
 class PayloadSizeExceededError(MemoryValidationError):
     """Request payload size exceeds maximum allowed."""
+
     pass
 
 
 class InvalidUTF8Error(MemoryValidationError):
     """Content contains invalid UTF-8 characters."""
+
     pass
 
 
 class MalformedMetadataError(MemoryValidationError):
     """Metadata is malformed or contains invalid data."""
+
     pass
 
 
 class OversizedJSONError(MemoryValidationError):
     """JSON data is too large."""
+
     pass
 
 
@@ -93,7 +104,7 @@ class MemoryValidator:
     # Embedding validation
     MIN_EMBEDDING_DIM = 64
     MAX_EMBEDDING_DIM = 8192
-    
+
     @property
     def VALID_EMBEDDING_DIM(self) -> int:
         return settings.VECTOR_DIMENSION
@@ -154,7 +165,7 @@ class MemoryValidator:
         """
         # Validate UTF-8 encoding
         try:
-            encoded = content.encode('utf-8')
+            encoded = content.encode("utf-8")
         except UnicodeEncodeError as e:
             raise InvalidUTF8Error(f"Invalid UTF-8 in content: {e}")
 
@@ -172,7 +183,9 @@ class MemoryValidator:
                 f"Estimated token count {estimated_tokens} exceeds maximum {self.max_tokens}"
             )
 
-        logger.debug(f"Memory content validation passed: {content_size} bytes, ~{estimated_tokens} tokens")
+        logger.debug(
+            f"Memory content validation passed: {content_size} bytes, ~{estimated_tokens} tokens"
+        )
 
     def validate_metadata(self, metadata: Dict[str, Any]) -> None:
         """
@@ -199,7 +212,7 @@ class MemoryValidator:
             raise MalformedMetadataError(f"Failed to serialize metadata: {e}")
 
         # Check JSON size
-        json_size = len(metadata_json.encode('utf-8'))
+        json_size = len(metadata_json.encode("utf-8"))
         if json_size > self.MAX_JSON_SIZE:
             raise OversizedJSONError(
                 f"Metadata JSON size {json_size} exceeds maximum {self.MAX_JSON_SIZE}"
@@ -226,6 +239,7 @@ class MemoryValidator:
         - Invalid data types
         - Suspicious patterns
         """
+
         def validate_value(value: Any, depth: int = 0) -> None:
             """Recursively validate metadata values."""
             if depth > 10:  # Prevent excessive nesting
@@ -241,7 +255,7 @@ class MemoryValidator:
                     validate_value(item, depth + 1)
             elif isinstance(value, str):
                 # Check for suspicious patterns
-                if '\x00' in value:
+                if "\x00" in value:
                     raise MalformedMetadataError("Metadata contains null bytes")
                 if len(value) > 10_000:  # Individual string limit
                     raise MalformedMetadataError("Metadata string value too long")
@@ -373,19 +387,17 @@ class MemoryValidator:
         """
         # Validate UTF-8
         try:
-            encoded = query.encode('utf-8')
+            encoded = query.encode("utf-8")
         except UnicodeEncodeError as e:
             raise InvalidUTF8Error(f"Invalid UTF-8 in query: {e}")
 
         # Check size limit (queries can be smaller than memories)
         query_size = len(encoded)
         if query_size > 10_000:  # 10KB max for queries
-            raise MemorySizeExceededError(
-                f"Query size {query_size} exceeds maximum 10,000"
-            )
+            raise MemorySizeExceededError(f"Query size {query_size} exceeds maximum 10,000")
 
         # Check for suspicious patterns
-        if '\x00' in query:
+        if "\x00" in query:
             raise InvalidUTF8Error("Query contains null bytes")
 
         logger.debug(f"Search query validation passed: {query_size} bytes")

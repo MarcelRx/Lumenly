@@ -9,6 +9,7 @@ This module implements behavior tracking for:
 - Journal statistics
 - Interaction timestamps
 """
+
 import logging
 import uuid
 from collections import defaultdict
@@ -46,11 +47,7 @@ class BehaviorTracker(IBehaviorTracker):
         self.storage = storage
         logger.info("Initialized BehaviorTracker")
 
-    async def track_conversation_frequency(
-        self,
-        user_id: str,
-        timestamp: datetime
-    ) -> None:
+    async def track_conversation_frequency(self, user_id: str, timestamp: datetime) -> None:
         """
         Track conversation frequency for behavior analysis.
 
@@ -82,12 +79,7 @@ class BehaviorTracker(IBehaviorTracker):
         except Exception as e:
             logger.error(f"Failed to track conversation frequency: {e}")
 
-    async def track_goal_completion(
-        self,
-        user_id: str,
-        goal_id: str,
-        completed: bool
-    ) -> None:
+    async def track_goal_completion(self, user_id: str, goal_id: str, completed: bool) -> None:
         """
         Track goal completion events.
 
@@ -121,12 +113,7 @@ class BehaviorTracker(IBehaviorTracker):
         except Exception as e:
             logger.error(f"Failed to track goal completion: {e}")
 
-    async def track_habit_streak(
-        self,
-        user_id: str,
-        habit_id: str,
-        completed: bool
-    ) -> None:
+    async def track_habit_streak(self, user_id: str, habit_id: str, completed: bool) -> None:
         """
         Track habit streak information.
 
@@ -161,10 +148,7 @@ class BehaviorTracker(IBehaviorTracker):
             logger.error(f"Failed to track habit streak: {e}")
 
     async def track_journal_statistics(
-        self,
-        user_id: str,
-        entry_id: str,
-        mood_score: Optional[int]
+        self, user_id: str, entry_id: str, mood_score: Optional[int]
     ) -> None:
         """
         Track journal entry statistics.
@@ -200,9 +184,7 @@ class BehaviorTracker(IBehaviorTracker):
             logger.error(f"Failed to track journal statistics: {e}")
 
     async def get_behavior_summary(
-        self,
-        user_id: str,
-        time_range: Optional[tuple[datetime, datetime]] = None
+        self, user_id: str, time_range: Optional[tuple[datetime, datetime]] = None
     ) -> Dict[str, Any]:
         """
         Get behavioral summary for a user.
@@ -219,21 +201,12 @@ class BehaviorTracker(IBehaviorTracker):
             if time_range:
                 # Apply time range filtering (would need storage support)
                 memories = await self.storage.list_user_memories(
-                    user_id=user_id,
-                    memory_type=MemoryType.BEHAVIORAL,
-                    limit=10000,
-                    offset=0
+                    user_id=user_id, memory_type=MemoryType.BEHAVIORAL, limit=10000, offset=0
                 )
-                memories = [
-                    m for m in memories
-                    if time_range[0] <= m.created_at <= time_range[1]
-                ]
+                memories = [m for m in memories if time_range[0] <= m.created_at <= time_range[1]]
             else:
                 memories = await self.storage.list_user_memories(
-                    user_id=user_id,
-                    memory_type=MemoryType.BEHAVIORAL,
-                    limit=10000,
-                    offset=0
+                    user_id=user_id, memory_type=MemoryType.BEHAVIORAL, limit=10000, offset=0
                 )
 
             # Analyze patterns
@@ -247,7 +220,9 @@ class BehaviorTracker(IBehaviorTracker):
                 "time_range": {
                     "start": time_range[0].isoformat() if time_range else None,
                     "end": time_range[1].isoformat() if time_range else None,
-                } if time_range else "all_time",
+                }
+                if time_range
+                else "all_time",
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
@@ -258,15 +233,9 @@ class BehaviorTracker(IBehaviorTracker):
             logger.error(f"Failed to get behavior summary for user {user_id}: {e}")
             return {}
 
-    def _analyze_conversation_frequency(
-        self,
-        memories: List
-    ) -> Dict[str, Any]:
+    def _analyze_conversation_frequency(self, memories: List) -> Dict[str, Any]:
         """Analyze conversation frequency patterns."""
-        conversation_memories = [
-            m for m in memories
-            if "conversation" in m.metadata.tags
-        ]
+        conversation_memories = [m for m in memories if "conversation" in m.metadata.tags]
 
         if not conversation_memories:
             return {"count": 0, "frequency": "none"}
@@ -280,11 +249,7 @@ class BehaviorTracker(IBehaviorTracker):
         # Calculate average daily frequency
         if daily_counts:
             avg_daily = sum(daily_counts.values()) / len(daily_counts)
-            frequency_level = (
-                "high" if avg_daily > 5 else
-                "medium" if avg_daily > 2 else
-                "low"
-            )
+            frequency_level = "high" if avg_daily > 5 else "medium" if avg_daily > 2 else "low"
         else:
             avg_daily = 0
             frequency_level = "none"
@@ -296,23 +261,16 @@ class BehaviorTracker(IBehaviorTracker):
             "active_days": len(daily_counts),
         }
 
-    def _analyze_goal_completion(
-        self,
-        memories: List
-    ) -> Dict[str, Any]:
+    def _analyze_goal_completion(self, memories: List) -> Dict[str, Any]:
         """Analyze goal completion patterns."""
         goal_memories = [
-            m for m in memories
-            if "goal" in m.metadata.tags and "completion" in m.metadata.tags
+            m for m in memories if "goal" in m.metadata.tags and "completion" in m.metadata.tags
         ]
 
         if not goal_memories:
             return {"total": 0, "completed": 0, "rate": 0.0}
 
-        completed = sum(
-            1 for m in goal_memories
-            if "completed" in m.metadata.tags
-        )
+        completed = sum(1 for m in goal_memories if "completed" in m.metadata.tags)
 
         completion_rate = completed / len(goal_memories) if goal_memories else 0.0
 
@@ -323,23 +281,16 @@ class BehaviorTracker(IBehaviorTracker):
             "rate": round(completion_rate, 2),
         }
 
-    def _analyze_habit_streaks(
-        self,
-        memories: List
-    ) -> Dict[str, Any]:
+    def _analyze_habit_streaks(self, memories: List) -> Dict[str, Any]:
         """Analyze habit streak patterns."""
         habit_memories = [
-            m for m in memories
-            if "habit" in m.metadata.tags and "streak" in m.metadata.tags
+            m for m in memories if "habit" in m.metadata.tags and "streak" in m.metadata.tags
         ]
 
         if not habit_memories:
             return {"total": 0, "completed": 0, "missed": 0}
 
-        completed = sum(
-            1 for m in habit_memories
-            if "completed" in m.metadata.tags
-        )
+        completed = sum(1 for m in habit_memories if "completed" in m.metadata.tags)
 
         return {
             "total": len(habit_memories),
@@ -348,15 +299,9 @@ class BehaviorTracker(IBehaviorTracker):
             "completion_rate": round(completed / len(habit_memories), 2) if habit_memories else 0.0,
         }
 
-    def _analyze_journal_patterns(
-        self,
-        memories: List
-    ) -> Dict[str, Any]:
+    def _analyze_journal_patterns(self, memories: List) -> Dict[str, Any]:
         """Analyze journal patterns and mood trends."""
-        journal_memories = [
-            m for m in memories
-            if "journal" in m.metadata.tags
-        ]
+        journal_memories = [m for m in memories if "journal" in m.metadata.tags]
 
         if not journal_memories:
             return {"total": 0, "with_mood": 0, "average_mood": None}
@@ -394,10 +339,7 @@ class BehaviorTracker(IBehaviorTracker):
 
         return dict(distribution)
 
-    def _calculate_engagement_score(
-        self,
-        memories: List
-    ) -> Dict[str, Any]:
+    def _calculate_engagement_score(self, memories: List) -> Dict[str, Any]:
         """Calculate overall engagement score."""
         if not memories:
             return {"score": 0.0, "level": "none"}
@@ -416,9 +358,7 @@ class BehaviorTracker(IBehaviorTracker):
         engagement_score = (recency_score * 0.7) + (volume_score * 0.3)
 
         engagement_level = (
-            "high" if engagement_score > 0.7 else
-            "medium" if engagement_score > 0.4 else
-            "low"
+            "high" if engagement_score > 0.7 else "medium" if engagement_score > 0.4 else "low"
         )
 
         return {
@@ -427,5 +367,3 @@ class BehaviorTracker(IBehaviorTracker):
             "total_events": total_events,
             "days_since_last": days_since_last,
         }
-
-

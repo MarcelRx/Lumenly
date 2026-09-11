@@ -46,11 +46,17 @@ async def ask(
         # Build context list for backward compatibility with existing ChatResponse schema
         context_list = []
         if rag_response.context_used.get("short_term_messages", 0) > 0:
-            context_list.append(f"Short-term memory: {rag_response.context_used['short_term_messages']} messages")
+            context_list.append(
+                f"Short-term memory: {rag_response.context_used['short_term_messages']} messages"
+            )
         if rag_response.context_used.get("long_term_memories", 0) > 0:
-            context_list.append(f"Long-term memories: {rag_response.context_used['long_term_memories']} memories")
+            context_list.append(
+                f"Long-term memories: {rag_response.context_used['long_term_memories']} memories"
+            )
         if rag_response.context_used.get("knowledge_chunks", 0) > 0:
-            context_list.append(f"Knowledge chunks: {rag_response.context_used['knowledge_chunks']} chunks")
+            context_list.append(
+                f"Knowledge chunks: {rag_response.context_used['knowledge_chunks']} chunks"
+            )
 
         return ChatResponse(
             answer=rag_response.content,
@@ -61,17 +67,19 @@ async def ask(
         logger.error(f"LLM provider error for user {current_user.id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI service temporarily unavailable. Please try again later."
+            detail="AI service temporarily unavailable. Please try again later.",
         )
     except ValueError as e:
         logger.error(f"Validation error for user {current_user.id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid request. Please check your input."
+            detail="Invalid request. Please check your input.",
         )
     except Exception as e:
-        logger.error(f"Unexpected error processing chat query for user {current_user.id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error processing chat query for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred. Please try again later."
+            detail="An unexpected error occurred. Please try again later.",
         )

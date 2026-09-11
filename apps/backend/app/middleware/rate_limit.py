@@ -8,6 +8,7 @@ Provides production-grade rate limiting for API endpoints with:
 - Redis-based storage for distributed systems
 - Automatic cleanup of expired entries
 """
+
 import logging
 import time
 from typing import Callable, Optional
@@ -44,9 +45,7 @@ class RateLimiter:
         }
 
     async def is_allowed(
-        self,
-        identifier: str,
-        user_role: str = "anonymous"
+        self, identifier: str, user_role: str = "anonymous"
     ) -> tuple[bool, Optional[int]]:
         if not self.enabled:
             return True, None
@@ -69,6 +68,7 @@ class RateLimiter:
 
             # Add current request
             import uuid
+
             member_id = f"{current_time}_{uuid.uuid4().hex}"
             pipe.zadd(key, {member_id: current_time})
 
@@ -94,16 +94,18 @@ class RateLimiter:
             # Fail closed by default for security - block request if Redis fails
             # Can be configured to fail open in development/low-risk scenarios
             if self.fail_open:
-                logger.warning("Rate limiting failing open (allowing requests due to Redis failure)")
+                logger.warning(
+                    "Rate limiting failing open (allowing requests due to Redis failure)"
+                )
                 return True, None
             else:
-                logger.error("Rate limiting failing closed (blocking requests due to Redis failure)")
+                logger.error(
+                    "Rate limiting failing closed (blocking requests due to Redis failure)"
+                )
                 return False, self.window_seconds
 
     async def get_rate_limit_headers(
-        self,
-        identifier: str,
-        user_role: str = "anonymous"
+        self, identifier: str, user_role: str = "anonymous"
     ) -> dict[str, str]:
         if not self.enabled:
             return {}
@@ -164,7 +166,14 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
     Enforces rate limits based on user role and returns 429 if exceeded.
     """
     # Skip rate limiting for health checks and metrics
-    if request.url.path in ["/health", "/health/live", "/health/ready", "/api/v1/metrics", "/metrics", "/v1/metrics"]:
+    if request.url.path in [
+        "/health",
+        "/health/live",
+        "/health/ready",
+        "/api/v1/metrics",
+        "/metrics",
+        "/v1/metrics",
+    ]:
         return await call_next(request)
 
     # Get client identifier and role
@@ -184,19 +193,15 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
                 "user_role": user_role,
                 "path": request.url.path,
                 "method": request.method,
-            }
+            },
         )
 
         # Record rate limit violation metrics
         security_rate_limit_exceeded_total.labels(
-            endpoint=request.url.path,
-            user_role=user_role
+            endpoint=request.url.path, user_role=user_role
         ).inc()
 
-        rate_limit_violations_total.labels(
-            limit_type="http_request",
-            user_role=user_role
-        ).inc()
+        rate_limit_violations_total.labels(limit_type="http_request", user_role=user_role).inc()
 
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -208,9 +213,9 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
                 },
                 "meta": {
                     "retryAfter": retry_after,
-                }
+                },
             },
-            headers={"Retry-After": str(retry_after)}
+            headers={"Retry-After": str(retry_after)},
         )
 
     # Process request

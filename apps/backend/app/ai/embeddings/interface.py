@@ -10,6 +10,7 @@ This interface provides a clean way to switch between:
 
 Without changing business logic.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EmbeddingConfig:
     """Configuration for embedding providers."""
+
     provider: str  # "openai", "cohere", "fastembed", "sentence_transformers"
     model: str
     api_key: Optional[str] = None
@@ -32,7 +34,7 @@ class EmbeddingConfig:
 class EmbeddingProviderInterface(ABC):
     """
     Abstract interface for embedding providers.
-    
+
     All providers must implement these methods to ensure
     consistent behavior across different embedding backends.
     """
@@ -50,10 +52,10 @@ class EmbeddingProviderInterface(ABC):
     async def embed(self, text: str) -> List[float]:
         """
         Generate an embedding vector for a single text.
-        
+
         Args:
             text: Input text to embed
-            
+
         Returns:
             List of floats representing the embedding vector
         """
@@ -63,10 +65,10 @@ class EmbeddingProviderInterface(ABC):
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
         Generate embedding vectors for multiple texts efficiently.
-        
+
         Args:
             texts: List of input texts to embed
-            
+
         Returns:
             List of embedding vectors (list of float lists)
         """
@@ -91,14 +93,17 @@ class EmbeddingProviderInterface(ABC):
 
 class EmbeddingProviderError(Exception):
     """Base exception for embedding provider errors."""
+
     pass
 
 
 class EmbeddingProviderConnectionError(EmbeddingProviderError):
     """Raised when connection to embedding provider fails."""
+
     pass
 
 
 class EmbeddingProviderAuthenticationError(EmbeddingProviderError):
     """Raised when authentication with embedding provider fails."""
+
     pass

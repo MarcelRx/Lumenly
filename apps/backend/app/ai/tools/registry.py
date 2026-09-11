@@ -9,6 +9,7 @@ Implements:
 - Tenant isolation enforcement
 - Security context propagation
 """
+
 import logging
 import uuid
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ try:
         security_authorization_failures_total,
         security_cross_tenant_attempts_total,
     )
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -34,6 +36,7 @@ except ImportError:
 @dataclass
 class ToolSchema:
     """Schema definition for tool arguments."""
+
     name: str
     description: str
     parameters: Dict[str, Any]  # JSON Schema format
@@ -43,6 +46,7 @@ class ToolSchema:
 @dataclass
 class ToolAuthorization:
     """Authorization requirements for tool execution."""
+
     require_user_context: bool = True
     allowed_roles: Optional[List[str]] = None
     require_tenant_isolation: bool = True
@@ -52,6 +56,7 @@ class ToolAuthorization:
 @dataclass
 class ToolDefinition:
     """Complete tool definition with execution logic."""
+
     name: str
     description: str
     schema: ToolSchema
@@ -85,19 +90,17 @@ class ToolRegistry:
                         "properties": {
                             "habit_id": {
                                 "type": "string",
-                                "description": "ID of the habit to check"
+                                "description": "ID of the habit to check",
                             }
                         },
-                        "required": ["habit_id"]
+                        "required": ["habit_id"],
                     },
-                    required=["habit_id"]
+                    required=["habit_id"],
                 ),
                 authorization=ToolAuthorization(
-                    require_user_context=True,
-                    require_tenant_isolation=True,
-                    max_arg_size=1000
+                    require_user_context=True, require_tenant_isolation=True, max_arg_size=1000
                 ),
-                executor=self._execute_check_habit_status
+                executor=self._execute_check_habit_status,
             )
         )
 
@@ -112,21 +115,16 @@ class ToolRegistry:
                     parameters={
                         "type": "object",
                         "properties": {
-                            "goal_id": {
-                                "type": "string",
-                                "description": "ID of the goal"
-                            }
+                            "goal_id": {"type": "string", "description": "ID of the goal"}
                         },
-                        "required": ["goal_id"]
+                        "required": ["goal_id"],
                     },
-                    required=["goal_id"]
+                    required=["goal_id"],
                 ),
                 authorization=ToolAuthorization(
-                    require_user_context=True,
-                    require_tenant_isolation=True,
-                    max_arg_size=1000
+                    require_user_context=True, require_tenant_isolation=True, max_arg_size=1000
                 ),
-                executor=self._execute_get_goal_progress
+                executor=self._execute_get_goal_progress,
             )
         )
 
@@ -146,19 +144,17 @@ class ToolRegistry:
                                 "description": "Maximum number of entries to retrieve",
                                 "default": 5,
                                 "minimum": 1,
-                                "maximum": 20
+                                "maximum": 20,
                             }
                         },
-                        "required": []
+                        "required": [],
                     },
-                    required=[]
+                    required=[],
                 ),
                 authorization=ToolAuthorization(
-                    require_user_context=True,
-                    require_tenant_isolation=True,
-                    max_arg_size=500
+                    require_user_context=True, require_tenant_isolation=True, max_arg_size=500
                 ),
-                executor=self._execute_get_recent_journals
+                executor=self._execute_get_recent_journals,
             )
         )
 
@@ -187,7 +183,7 @@ class ToolRegistry:
         tool_name: str,
         arguments: Dict[str, Any],
         user_id: uuid.UUID,
-        user_role: str = "authenticated"
+        user_role: str = "authenticated",
     ) -> Dict[str, Any]:
         """
         Execute a tool with full security validation.
@@ -210,7 +206,9 @@ class ToolRegistry:
         if not tool:
             logger.warning(f"Attempted to execute unregistered tool: {tool_name} by user {user_id}")
             if METRICS_AVAILABLE:
-                security_authorization_failures_total.labels(resource_type="unregistered_tool").inc()
+                security_authorization_failures_total.labels(
+                    resource_type="unregistered_tool"
+                ).inc()
             raise ValueError(f"Tool '{tool_name}' is not registered")
 
         # Step 2: Validate arguments against schema
@@ -266,10 +264,7 @@ class ToolRegistry:
                 raise ValueError(f"Field {field} must be boolean")
 
     def _check_authorization(
-        self,
-        auth: ToolAuthorization,
-        user_id: uuid.UUID,
-        user_role: str
+        self, auth: ToolAuthorization, user_id: uuid.UUID, user_role: str
     ) -> bool:
         """Check if user is authorized to execute tool."""
         # Check role requirements
@@ -283,11 +278,7 @@ class ToolRegistry:
         return True
 
     async def _log_security_event(
-        self,
-        user_id: uuid.UUID,
-        event_type: str,
-        resource_id: str,
-        details: Dict[str, Any]
+        self, user_id: uuid.UUID, event_type: str, resource_id: str, details: Dict[str, Any]
     ) -> None:
         """
         Log security events for compliance and observability.
@@ -306,16 +297,12 @@ class ToolRegistry:
                 user_id=user_id,
                 event_type=event_type,
                 severity_level=0.7,  # High severity for cross-tenant attempts
-                details={
-                    "resource_id": resource_id,
-                    **details
-                }
+                details={"resource_id": resource_id, **details},
             )
             await compliance_event.insert()
 
             logger.warning(
-                f"Security event logged: {event_type} by user {user_id} "
-                f"for resource {resource_id}"
+                f"Security event logged: {event_type} by user {user_id} for resource {resource_id}"
             )
 
         except Exception as e:
@@ -324,9 +311,7 @@ class ToolRegistry:
 
     # Tool executors with real database access and ownership enforcement
     async def _execute_check_habit_status(
-        self,
-        arguments: Dict[str, Any],
-        user_id: uuid.UUID
+        self, arguments: Dict[str, Any], user_id: uuid.UUID
     ) -> Dict[str, Any]:
         """
         Execute habit status check with real database access and tenant isolation.
@@ -350,12 +335,7 @@ class ToolRegistry:
                 raise ValueError("Invalid habit_id format")
 
             # Query habit with ownership filter at database level
-            habit = await Habit.find_one(
-                {
-                    "_id": habit_object_id,
-                    "user_id": user_id
-                }
-            )
+            habit = await Habit.find_one({"_id": habit_object_id, "user_id": user_id})
 
             if not habit:
                 # Habit either doesn't exist or belongs to another user
@@ -373,7 +353,7 @@ class ToolRegistry:
                     user_id=user_id,
                     event_type="cross_tenant_habit_access",
                     resource_id=habit_id,
-                    details={"tool": "check_habit_status"}
+                    details={"tool": "check_habit_status"},
                 )
 
                 raise ValueError("Habit not found")
@@ -385,7 +365,7 @@ class ToolRegistry:
                 "title": habit.title,
                 "frequency": habit.frequency,
                 "streak_count": habit.streak_count,
-                "created_at": habit.created_at.isoformat()
+                "created_at": habit.created_at.isoformat(),
             }
 
         except ValueError:
@@ -395,9 +375,7 @@ class ToolRegistry:
             raise ValueError("Failed to retrieve habit status")
 
     async def _execute_get_goal_progress(
-        self,
-        arguments: Dict[str, Any],
-        user_id: uuid.UUID
+        self, arguments: Dict[str, Any], user_id: uuid.UUID
     ) -> Dict[str, Any]:
         """
         Execute goal progress retrieval with real database access and tenant isolation.
@@ -421,12 +399,7 @@ class ToolRegistry:
                 raise ValueError("Invalid goal_id format")
 
             # Query goal with ownership filter at database level
-            goal = await Goal.find_one(
-                {
-                    "_id": goal_object_id,
-                    "user_id": user_id
-                }
-            )
+            goal = await Goal.find_one({"_id": goal_object_id, "user_id": user_id})
 
             if not goal:
                 # Goal either doesn't exist or belongs to another user
@@ -444,7 +417,7 @@ class ToolRegistry:
                     user_id=user_id,
                     event_type="cross_tenant_goal_access",
                     resource_id=goal_id,
-                    details={"tool": "get_goal_progress"}
+                    details={"tool": "get_goal_progress"},
                 )
 
                 raise ValueError("Goal not found")
@@ -461,7 +434,7 @@ class ToolRegistry:
                 "target_date": goal.target_date.isoformat(),
                 "is_completed": goal.is_completed,
                 "progress_percentage": progress_percentage,
-                "created_at": goal.created_at.isoformat()
+                "created_at": goal.created_at.isoformat(),
             }
 
         except ValueError:
@@ -471,9 +444,7 @@ class ToolRegistry:
             raise ValueError("Failed to retrieve goal progress")
 
     async def _execute_get_recent_journals(
-        self,
-        arguments: Dict[str, Any],
-        user_id: uuid.UUID
+        self, arguments: Dict[str, Any], user_id: uuid.UUID
     ) -> Dict[str, Any]:
         """
         Execute recent journals retrieval with real database access and tenant isolation.
@@ -492,9 +463,12 @@ class ToolRegistry:
         try:
             # Query journals with ownership filter at database level
             # The user_id filter in the query itself prevents cross-tenant access
-            journals = await JournalEntry.find(
-                {"user_id": user_id}
-            ).sort("-created_at").limit(limit).to_list()
+            journals = (
+                await JournalEntry.find({"user_id": user_id})
+                .sort("-created_at")
+                .limit(limit)
+                .to_list()
+            )
 
             # Record successful access metric
             if METRICS_AVAILABLE:
@@ -507,16 +481,12 @@ class ToolRegistry:
                     "id": str(journal.id),
                     "content": journal.content,
                     "mood_score": journal.mood_score,
-                    "created_at": journal.created_at.isoformat()
+                    "created_at": journal.created_at.isoformat(),
                 }
                 for journal in journals
             ]
 
-            return {
-                "status": "success",
-                "journals": journal_list,
-                "count": len(journal_list)
-            }
+            return {"status": "success", "journals": journal_list, "count": len(journal_list)}
 
         except ValueError:
             raise

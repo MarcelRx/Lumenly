@@ -5,6 +5,7 @@ Memory Retriever - Query pipeline and filtering implementation.
 This module implements the memory retrieval pipeline:
 Query → Embedding → Qdrant Search → Memory Ranking → Context Selection → LLM
 """
+
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -71,10 +72,7 @@ class MemoryRetriever(IMemoryRetriever):
         return self.qdrant_client
 
     async def search(
-        self,
-        user_id: str,
-        query: str,
-        config: MemoryRetrievalConfig
+        self, user_id: str, query: str, config: MemoryRetrievalConfig
     ) -> List[MemorySearchResult]:
         """
         Search for memories based on a query.
@@ -106,10 +104,7 @@ class MemoryRetriever(IMemoryRetriever):
 
             # Step 2: Search memories from storage
             memories = await self._search_memories(
-                user_id=user_id,
-                query=query,
-                query_vector=query_vector,
-                config=config
+                user_id=user_id, query=query, query_vector=query_vector, config=config
             )
 
             if not memories:
@@ -119,19 +114,14 @@ class MemoryRetriever(IMemoryRetriever):
             # Step 3: Apply ranking if enabled
             if config.enable_ranking:
                 ranked_results = await self.ranker.rank(
-                    memories=memories,
-                    query=query,
-                    query_vector=query_vector
+                    memories=memories, query=query, query_vector=query_vector
                 )
 
                 # Filter by minimum score
-                ranked_results = [
-                    r for r in ranked_results
-                    if r.score >= config.min_score
-                ]
+                ranked_results = [r for r in ranked_results if r.score >= config.min_score]
 
                 # Limit to max results
-                ranked_results = ranked_results[:config.max_results]
+                ranked_results = ranked_results[: config.max_results]
 
                 logger.debug(
                     f"Ranked {len(ranked_results)} memories for user {user_id}, "
@@ -142,13 +132,8 @@ class MemoryRetriever(IMemoryRetriever):
             else:
                 # Return unranked results with default scores
                 return [
-                    MemorySearchResult(
-                        memory=mem,
-                        score=1.0,
-                        rank=idx + 1,
-                        relevance_factors={}
-                    )
-                    for idx, mem in enumerate(memories[:config.max_results])
+                    MemorySearchResult(memory=mem, score=1.0, rank=idx + 1, relevance_factors={})
+                    for idx, mem in enumerate(memories[: config.max_results])
                 ]
 
         except Exception as e:
@@ -160,7 +145,7 @@ class MemoryRetriever(IMemoryRetriever):
         user_id: str,
         query: str,
         query_vector: Optional[List[float]],
-        config: MemoryRetrievalConfig
+        config: MemoryRetrievalConfig,
     ) -> List[MemoryRecord]:
         """
         Search memories from storage with filters.
@@ -187,10 +172,7 @@ class MemoryRetriever(IMemoryRetriever):
         return unique_memories
 
     async def _semantic_search(
-        self,
-        user_id: str,
-        query_vector: List[float],
-        config: MemoryRetrievalConfig
+        self, user_id: str, query_vector: List[float], config: MemoryRetrievalConfig
     ) -> List[MemoryRecord]:
         """
         Perform semantic search using Qdrant vector database.
@@ -199,9 +181,7 @@ class MemoryRetriever(IMemoryRetriever):
         qdrant = self._get_qdrant()
 
         # Build Qdrant filter
-        filter_conditions = [
-            FieldCondition(key="user_id", match=MatchValue(value=user_id))
-        ]
+        filter_conditions = [FieldCondition(key="user_id", match=MatchValue(value=user_id))]
 
         # Add memory type filter
         if config.memory_types:
@@ -269,22 +249,20 @@ class MemoryRetriever(IMemoryRetriever):
         return memories
 
     async def _metadata_search(
-        self,
-        user_id: str,
-        query: str,
-        config: MemoryRetrievalConfig
+        self, user_id: str, query: str, config: MemoryRetrievalConfig
     ) -> List[MemoryRecord]:
         """
         Perform metadata-based search using storage.
         """
         # Get memories from storage with type filter
-        memory_type = config.memory_types[0] if config.memory_types and len(config.memory_types) == 1 else None
+        memory_type = (
+            config.memory_types[0]
+            if config.memory_types and len(config.memory_types) == 1
+            else None
+        )
 
         memories = await self.storage.list_user_memories(
-            user_id=user_id,
-            memory_type=memory_type,
-            limit=config.max_results,
-            offset=0
+            user_id=user_id, memory_type=memory_type, limit=config.max_results, offset=0
         )
 
         # Apply additional filters
@@ -295,7 +273,10 @@ class MemoryRetriever(IMemoryRetriever):
                 continue
 
             # Apply importance filter
-            if config.importance_filter and memory.metadata.importance not in config.importance_filter:
+            if (
+                config.importance_filter
+                and memory.metadata.importance not in config.importance_filter
+            ):
                 continue
 
             # Apply source filter
@@ -310,10 +291,7 @@ class MemoryRetriever(IMemoryRetriever):
             # Apply simple text matching to query
             if query and query.lower() not in memory.content.lower():
                 # Also check tags
-                tag_match = any(
-                    query.lower() in tag.lower()
-                    for tag in memory.metadata.tags
-                )
+                tag_match = any(query.lower() in tag.lower() for tag in memory.metadata.tags)
                 if not tag_match:
                     continue
 
@@ -339,7 +317,9 @@ class MemoryRetriever(IMemoryRetriever):
                 source=payload.get("source"),
                 tags=payload.get("tags", []),
                 access_count=payload.get("access_count", 0),
-                created_at=datetime.fromisoformat(payload.get("created_at", datetime.now(timezone.utc).isoformat())),
+                created_at=datetime.fromisoformat(
+                    payload.get("created_at", datetime.now(timezone.utc).isoformat())
+                ),
             )
 
             return MemoryRecord(
@@ -356,11 +336,7 @@ class MemoryRetriever(IMemoryRetriever):
             logger.error(f"Failed to convert Qdrant point to MemoryRecord: {e}")
             return None
 
-    async def retrieve_by_id(
-        self,
-        memory_id: str,
-        user_id: str
-    ) -> Optional[MemoryRecord]:
+    async def retrieve_by_id(self, memory_id: str, user_id: str) -> Optional[MemoryRecord]:
         """
         Retrieve a specific memory by ID.
 
@@ -384,7 +360,7 @@ class MemoryRetriever(IMemoryRetriever):
                     updates={
                         "access_count": memory.metadata.access_count + 1,
                         "last_accessed": datetime.now(timezone.utc).isoformat(),
-                    }
+                    },
                 )
 
             return memory
@@ -394,10 +370,7 @@ class MemoryRetriever(IMemoryRetriever):
             return None
 
     async def retrieve_recent(
-        self,
-        user_id: str,
-        limit: int = 10,
-        memory_type: Optional[MemoryType] = None
+        self, user_id: str, limit: int = 10, memory_type: Optional[MemoryType] = None
     ) -> List[MemoryRecord]:
         """
         Retrieve recent memories for a user.
@@ -409,7 +382,7 @@ class MemoryRetriever(IMemoryRetriever):
                 user_id=user_id,
                 memory_type=memory_type,
                 limit=limit * 2,  # Get more to allow for filtering
-                offset=0
+                offset=0,
             )
 
             # Sort by creation time descending
@@ -426,10 +399,7 @@ class MemoryRetriever(IMemoryRetriever):
             return []
 
     async def retrieve_by_type(
-        self,
-        user_id: str,
-        memory_type: MemoryType,
-        limit: int = 100
+        self, user_id: str, memory_type: MemoryType, limit: int = 100
     ) -> List[MemoryRecord]:
         """
         Retrieve memories of a specific type.
@@ -438,30 +408,20 @@ class MemoryRetriever(IMemoryRetriever):
         """
         try:
             memories = await self.storage.list_user_memories(
-                user_id=user_id,
-                memory_type=memory_type,
-                limit=limit,
-                offset=0
+                user_id=user_id, memory_type=memory_type, limit=limit, offset=0
             )
 
             logger.debug(
-                f"Retrieved {len(memories)} {memory_type.value} memories "
-                f"for user {user_id}"
+                f"Retrieved {len(memories)} {memory_type.value} memories for user {user_id}"
             )
             return memories
 
         except Exception as e:
-            logger.error(
-                f"Failed to retrieve {memory_type.value} memories "
-                f"for user {user_id}: {e}"
-            )
+            logger.error(f"Failed to retrieve {memory_type.value} memories for user {user_id}: {e}")
             return []
 
     async def build_context(
-        self,
-        user_id: str,
-        query: str,
-        max_memories: int = 5
+        self, user_id: str, query: str, max_memories: int = 5
     ) -> Dict[str, Any]:
         """
         Build LLM context from retrieved memories.
@@ -480,13 +440,15 @@ class MemoryRetriever(IMemoryRetriever):
         formatted_memories = []
         for result in search_results:
             memory = result.memory
-            formatted_memories.append({
-                "type": memory.memory_type.value,
-                "content": memory.content,
-                "importance": memory.metadata.importance.value,
-                "relevance_score": result.score,
-                "created_at": memory.created_at.isoformat(),
-            })
+            formatted_memories.append(
+                {
+                    "type": memory.memory_type.value,
+                    "content": memory.content,
+                    "importance": memory.metadata.importance.value,
+                    "relevance_score": result.score,
+                    "created_at": memory.created_at.isoformat(),
+                }
+            )
 
         context = {
             "query": query,

@@ -30,11 +30,12 @@ class ToolCallDetails(BaseModel):
 class FusionEngine:
     """Fuses memory context, agent routing, knowledge retrieval, tool execution, and LLM generation."""
 
-    def __init__(self,
+    def __init__(
+        self,
         memory_manager: MemoryManager,
         router: AgentRouter,
         llm_client: Optional[object] = None,
-        knowledge_retriever: Optional[object] = None
+        knowledge_retriever: Optional[object] = None,
     ):
         self.memory_manager = memory_manager
         self.router = router
@@ -42,17 +43,12 @@ class FusionEngine:
         self.knowledge_retriever = knowledge_retriever
 
     async def process_user_query(
-        self,
-        user_id: str,
-        query: str,
-        query_vector: Optional[list[float]] = None
+        self, user_id: str, query: str, query_vector: Optional[list[float]] = None
     ) -> dict:
         try:
             # --- 1. Build context & RAG --- (Remains same)
             context = await self.memory_manager.build_context(
-                user_id=user_id,
-                current_query=query,
-                query_vector=query_vector
+                user_id=user_id, current_query=query, query_vector=query_vector
             )
             chat_history = context.get("chat_history", [])
             system_prompt_memory = context.get("system_prompt", "")
@@ -62,7 +58,9 @@ class FusionEngine:
 
             if self.knowledge_retriever:
                 # (RAG search logic remains same...)
-                kb_results = await self.knowledge_retriever.search_knowledge(user_id=user_id, query=query, top_k=3)
+                kb_results = await self.knowledge_retriever.search_knowledge(
+                    user_id=user_id, query=query, top_k=3
+                )
                 if kb_results:
                     knowledge_snippets_used = len(kb_results)
                     knowledge_context = "\n\n--- RELEVANT KNOWLEDGE BASE DOCUMENTS ---\n"
@@ -95,14 +93,16 @@ class FusionEngine:
                 system_prompt=full_system_prompt,
                 user_query=query,
                 chat_history=chat_history,
-                tools=available_tools
+                tools=available_tools,
             )
 
             response_text = ""
 
             # --- 5. Step 2 Orchestration: Handle Tool Execution --- (NEW)
             if response_message.tool_calls:
-                logger.info(f"LLM requesting tool calls: {[tc.function.name for tc in response_message.tool_calls]}")
+                logger.info(
+                    f"LLM requesting tool calls: {[tc.function.name for tc in response_message.tool_calls]}"
+                )
 
                 # Execute tool loop internally to satisfy this test scenario simply
                 for tool_call in response_message.tool_calls:
@@ -112,17 +112,15 @@ class FusionEngine:
                             # Parse JSON arguments from Llama
                             args = json.loads(tool_call.function.arguments)
                             parsed_details = ToolCallDetails(
-                                id=tool_call.id,
-                                name=function_name,
-                                arguments=args
+                                id=tool_call.id, name=function_name, arguments=args
                             )
                             logger.info(f"Executing mock tool {function_name} for user {user_id}")
 
                             # Call the mock function created in Choice A
                             # In a real app, this runs the higher-level service
                             mock_result = await create_calendar_event(
-                                event_title=parsed_details.arguments.get('event_title'),
-                                event_time=parsed_details.arguments.get('event_time')
+                                event_title=parsed_details.arguments.get("event_title"),
+                                event_time=parsed_details.arguments.get("event_time"),
                             )
 
                             # 5.1 We need a final confirmation message from the agent.
@@ -133,32 +131,38 @@ class FusionEngine:
                                 original_chat_history=chat_history,
                                 original_tool_call_message=response_message,
                                 tool_result=mock_result,
-                                tool_call_id=tool_call.id
+                                tool_call_id=tool_call.id,
                             )
 
                         except json.JSONDecodeError:
                             response_text = "❌ Error parsing function parameters."
                         except Exception as tool_exc:
                             logger.error(f"Function {function_name} failed: {tool_exc}")
-                            response_text = f"❌ The {function_name} service is currently unavailable."
+                            response_text = (
+                                f"❌ The {function_name} service is currently unavailable."
+                            )
             else:
                 # Normal response text
                 response_text = response_message.content
 
             # --- 6. Save turn to memory --- (Uses the final response text)
             await self.memory_manager.save_turn(
-                user_id=user_id,
-                user_query=query,
-                assistant_response=response_text
+                user_id=user_id, user_query=query, assistant_response=response_text
             )
 
             # --- 7. Return result --- (Stats logic remains same)
-            memories_retrieved = 1 if query_vector is not None and len(query_vector) > 0 and "memories" in system_prompt_memory.lower() else 0
+            memories_retrieved = (
+                1
+                if query_vector is not None
+                and len(query_vector) > 0
+                and "memories" in system_prompt_memory.lower()
+                else 0
+            )
             return {
                 "response": response_text,
                 "agent_used": selected_agent.value,
                 "memories_retrieved": memories_retrieved,
-                "knowledge_snippets_used": knowledge_snippets_used
+                "knowledge_snippets_used": knowledge_snippets_used,
             }
 
         except Exception as e:
@@ -174,8 +178,8 @@ class FusionEngine:
         system_prompt: str,
         user_query: str,
         chat_history: list[dict],
-        tools: Optional[list] = None
-    ) -> Any: # Returns Groq Choice message object + usage dict
+        tools: Optional[list] = None,
+    ) -> Any:  # Returns Groq Choice message object + usage dict
         if self.llm_client is None:
             return None, {}
 
@@ -183,24 +187,23 @@ class FusionEngine:
             # Build messages array (Groq style)
             messages = [{"role": "system", "content": system_prompt}]
             for msg in chat_history:
-                messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
-                })
+                messages.append(
+                    {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                )
             messages.append({"role": "user", "content": user_query})
 
             # Base parameters
             call_params = {
                 "messages": messages,
-                "model": "llama-3.3-70b-versatile", # Kept your hardcoded model
+                "model": "llama-3.3-70b-versatile",  # Kept your hardcoded model
                 "temperature": 0.7,
-                "max_tokens": 1024
+                "max_tokens": 1024,
             }
 
             # Inject tools if available
             if tools:
                 call_params["tools"] = tools
-                call_params["tool_choice"] = "auto" # Decide automatically
+                call_params["tool_choice"] = "auto"  # Decide automatically
 
             logger.debug(f"Calling Groq Llama with tool capability: {bool(tools)}")
             response = await self.llm_client.chat.completions.create(**call_params)
@@ -208,11 +211,15 @@ class FusionEngine:
             return response.choices[0].message, response.usage
 
         except Exception as e:
-            logger.error(f"LLM generation failed in _generate_with_tool_support: {e}", exc_info=True)
+            logger.error(
+                f"LLM generation failed in _generate_with_tool_support: {e}", exc_info=True
+            )
+
             # Mock structure to handle error gracefully within logic flow
             class MockMessage:
                 content = f"Mock error: {e}"
                 tool_calls = None
+
             return MockMessage(), {}
 
     async def _generate_final_agent_confirmation(
@@ -220,9 +227,9 @@ class FusionEngine:
         system_prompt: str,
         original_query: str,
         original_chat_history: list[dict],
-        original_tool_call_message: Any, # The message object requesting the tool
+        original_tool_call_message: Any,  # The message object requesting the tool
         tool_result: str,
-        tool_call_id: str
+        tool_call_id: str,
     ) -> str:
         """Calls the LLM again to get the final conversational confirmation after tool success."""
         if self.llm_client is None:
@@ -234,7 +241,9 @@ class FusionEngine:
 
             # 1. Past history
             for msg in original_chat_history:
-                orch_history.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+                orch_history.append(
+                    {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                )
 
             # 2. User original query
             orch_history.append({"role": "user", "content": original_query})
@@ -243,12 +252,14 @@ class FusionEngine:
             orch_history.append(original_tool_call_message)
 
             # 4. Add the TOOL response message (Result of execution)
-            orch_history.append({
-                "role": "tool",
-                "tool_call_id": tool_call_id,
-                "name": original_tool_call_message.tool_calls[0].function.name,
-                "content": tool_result # Text output of Choice A function
-            })
+            orch_history.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": original_tool_call_message.tool_calls[0].function.name,
+                    "content": tool_result,  # Text output of Choice A function
+                }
+            )
 
             logger.debug("Calling Groq Llama for final confirmation turn.")
 
@@ -256,8 +267,8 @@ class FusionEngine:
             response = await self.llm_client.chat.completions.create(
                 messages=orch_history,
                 model="llama-3.3-70b-versatile",
-                temperature=0.4, # Sightly lower temp for final confirmation
-                max_tokens=512
+                temperature=0.4,  # Sightly lower temp for final confirmation
+                max_tokens=512,
             )
             return response.choices[0].message.content
 

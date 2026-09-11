@@ -39,10 +39,7 @@ class CoachingFlowService:
         logger.info(f"Handling assessment flow for session {session.id}")
 
         # Route to Life Strategist for comprehensive assessment
-        selected_agent = self.agent_router.route_query(
-            user_message,
-            chat_history=[]
-        )
+        selected_agent = self.agent_router.route_query(user_message, chat_history=[])
 
         # Build assessment context with memory retrieval
         assessment_context = await self._build_assessment_context(session.user_id)
@@ -52,7 +49,7 @@ class CoachingFlowService:
             memories = await self.memory_manager.retrieve_memories(
                 user_id=str(session.user_id),
                 query=user_message,
-                config=None  # Use default config
+                config=None,  # Use default config
             )
             logger.info(f"Retrieved {len(memories)} memories for assessment context")
         except Exception as e:
@@ -64,7 +61,7 @@ class CoachingFlowService:
 
         messages = [
             LLMMessage(role="system", content=system_prompt),
-            LLMMessage(role="user", content=user_message)
+            LLMMessage(role="user", content=user_message),
         ]
 
         # Generate assessment response using LLM provider
@@ -88,11 +85,7 @@ class CoachingFlowService:
                 api_key = None
 
             llm_config = LLMConfig(
-                provider=provider,
-                model=model,
-                api_key=api_key,
-                temperature=0.7,
-                max_tokens=500
+                provider=provider, model=model, api_key=api_key, temperature=0.7, max_tokens=500
             )
 
             llm_provider = self.llm_provider_factory.create(llm_config)
@@ -107,7 +100,7 @@ class CoachingFlowService:
                 user_id=str(session.user_id),
                 memory_type="conversation",
                 content=f"User: {user_message}\nAssistant: {response_content}",
-                metadata=None
+                metadata=None,
             )
 
         except Exception as e:
@@ -122,9 +115,9 @@ class CoachingFlowService:
             "flow_stage": "assessment",
             "context_used": {
                 "memories_retrieved": len(memories),
-                "assessment_domains": len(assessment_context.get("domains_to_cover", []))
+                "assessment_domains": len(assessment_context.get("domains_to_cover", [])),
             },
-            "progress": 0.1  # 10% complete
+            "progress": 0.1,  # 10% complete
         }
 
         # Store assessment progress in session metadata
@@ -151,17 +144,12 @@ class CoachingFlowService:
         context = await self._build_nudge_context(session.user_id)
 
         # Route to appropriate agent based on context
-        selected_agent = self.agent_router.route_query(
-            user_message,
-            chat_history=[]
-        )
+        selected_agent = self.agent_router.route_query(user_message, chat_history=[])
 
         # Retrieve relevant memories for nudge context
         try:
             memories = await self.memory_manager.retrieve_memories(
-                user_id=str(session.user_id),
-                query="habits goals wellness progress",
-                config=None
+                user_id=str(session.user_id), query="habits goals wellness progress", config=None
             )
             logger.info(f"Retrieved {len(memories)} memories for nudge context")
         except Exception as e:
@@ -173,7 +161,7 @@ class CoachingFlowService:
 
         messages = [
             LLMMessage(role="system", content=system_prompt),
-            LLMMessage(role="user", content=user_message)
+            LLMMessage(role="user", content=user_message),
         ]
 
         # Generate nudge response using LLM provider
@@ -196,11 +184,7 @@ class CoachingFlowService:
                 api_key = None
 
             llm_config = LLMConfig(
-                provider=provider,
-                model=model,
-                api_key=api_key,
-                temperature=0.8,
-                max_tokens=300
+                provider=provider, model=model, api_key=api_key, temperature=0.8, max_tokens=300
             )
 
             llm_provider = self.llm_provider_factory.create(llm_config)
@@ -214,7 +198,7 @@ class CoachingFlowService:
                 user_id=str(session.user_id),
                 memory_type="conversation",
                 content=f"Nudge interaction: {user_message}\nResponse: {response_content}",
-                metadata=None
+                metadata=None,
             )
 
         except Exception as e:
@@ -225,7 +209,9 @@ class CoachingFlowService:
             elif context.get("upcoming_deadlines", 0) > 0:
                 response_content = f"You have {context['upcoming_deadlines']} goal(s) coming up soon. How can I help you stay on track?"
             else:
-                response_content = "You're making great progress! Keep up the momentum with your current habits."
+                response_content = (
+                    "You're making great progress! Keep up the momentum with your current habits."
+                )
 
         response = {
             "type": "assistant_message",
@@ -236,8 +222,8 @@ class CoachingFlowService:
                 "missed_habits": context.get("missed_habits", 0),
                 "wellness_score": context.get("wellness_score", 0),
                 "upcoming_deadlines": context.get("upcoming_deadlines", 0),
-                "memories_used": len(memories)
-            }
+                "memories_used": len(memories),
+            },
         }
 
         return response
@@ -264,9 +250,7 @@ class CoachingFlowService:
         # Retrieve relevant memories for reflection context
         try:
             memories = await self.memory_manager.retrieve_memories(
-                user_id=str(session.user_id),
-                query="journal mood sentiment reflection",
-                config=None
+                user_id=str(session.user_id), query="journal mood sentiment reflection", config=None
             )
             logger.info(f"Retrieved {len(memories)} memories for reflection context")
         except Exception as e:
@@ -278,7 +262,7 @@ class CoachingFlowService:
 
         messages = [
             LLMMessage(role="system", content=system_prompt),
-            LLMMessage(role="user", content=user_message)
+            LLMMessage(role="user", content=user_message),
         ]
 
         # Generate reflection response using LLM provider
@@ -301,11 +285,7 @@ class CoachingFlowService:
                 api_key = None
 
             llm_config = LLMConfig(
-                provider=provider,
-                model=model,
-                api_key=api_key,
-                temperature=0.7,
-                max_tokens=400
+                provider=provider, model=model, api_key=api_key, temperature=0.7, max_tokens=400
             )
 
             llm_provider = self.llm_provider_factory.create(llm_config)
@@ -319,7 +299,7 @@ class CoachingFlowService:
                 user_id=str(session.user_id),
                 memory_type="conversation",
                 content=f"Reflection: {user_message}\nAnalysis: {response_content}",
-                metadata=None
+                metadata=None,
             )
 
         except Exception as e:
@@ -341,15 +321,11 @@ class CoachingFlowService:
             "sentiment_trend": context.get("sentiment_trend", "stable"),
             "journal_entries_analyzed": context.get("journal_count", 0),
             "memories_used": len(memories),
-            "insights_generated": []
+            "insights_generated": [],
         }
 
         # Generate and store AI insights
-        insights = await self._generate_reflection_insights(
-            session.user_id,
-            session.id,
-            context
-        )
+        insights = await self._generate_reflection_insights(session.user_id, session.id, context)
 
         if insights:
             response["insights_generated"] = [str(insight.id) for insight in insights]
@@ -398,15 +374,15 @@ class CoachingFlowService:
                 {
                     "name": "National Suicide Prevention Lifeline",
                     "phone": "988",
-                    "description": "24/7 free and confidential support"
+                    "description": "24/7 free and confidential support",
                 },
                 {
                     "name": "Crisis Text Line",
                     "phone": "Text HOME to 741741",
-                    "description": "24/7 crisis support via text"
-                }
+                    "description": "24/7 crisis support via text",
+                },
             ],
-            "logged_to_compliance": True
+            "logged_to_compliance": True,
         }
 
         # Log escalation to compliance with persistent storage
@@ -428,8 +404,8 @@ class CoachingFlowService:
                 "career",
                 "finance",
                 "learning",
-                "habits"
-            ]
+                "habits",
+            ],
         }
 
     def _build_assessment_system_prompt(self, context: dict, memories: list) -> str:
@@ -469,26 +445,28 @@ Guidelines:
             # This is a simplified query - production would have more sophisticated logic
             missed_habits_count = await Habit.find(
                 Habit.user_id == user_id,
-                Habit.streak_count < 3  # Example: low streak indicates missed habits
+                Habit.streak_count < 3,  # Example: low streak indicates missed habits
             ).count()
 
             # Query upcoming deadlines (goals not completed with target date soon)
             from datetime import datetime, timedelta
+
             upcoming_deadline_threshold = datetime.now() + timedelta(days=7)
             upcoming_deadlines_count = await Goal.find(
                 Goal.user_id == user_id,
                 not Goal.is_completed,
-                Goal.target_date <= upcoming_deadline_threshold
+                Goal.target_date <= upcoming_deadline_threshold,
             ).count()
 
             # Wellness score calculated from journal entries
             # Get recent journal entries for mood analysis
             from app.models.domain import JournalEntry
+
             week_ago = datetime.now() - timedelta(days=7)
             recent_journals = await JournalEntry.find(
                 JournalEntry.user_id == user_id,
                 JournalEntry.created_at >= week_ago,
-                JournalEntry.mood_score is not None
+                JournalEntry.mood_score is not None,
             ).to_list()
 
             if recent_journals:
@@ -502,7 +480,7 @@ Guidelines:
                 "missed_habits": missed_habits_count,
                 "wellness_score": wellness_score,
                 "upcoming_deadlines": upcoming_deadlines_count,
-                "recent_activity": "moderate"
+                "recent_activity": "moderate",
             }
 
         except Exception as e:
@@ -513,7 +491,7 @@ Guidelines:
                 "missed_habits": 0,
                 "wellness_score": 70,
                 "upcoming_deadlines": 0,
-                "recent_activity": "unknown"
+                "recent_activity": "unknown",
             }
 
     def _build_nudge_system_prompt(self, context: dict, memories: list) -> str:
@@ -552,13 +530,18 @@ Guidelines:
 
             # Get journal entries from the last 7 days
             week_ago = datetime.now() - timedelta(days=7)
-            journal_entries = await JournalEntry.find(
-                JournalEntry.user_id == user_id,
-                JournalEntry.created_at >= week_ago
-            ).sort("-created_at").to_list()
+            journal_entries = (
+                await JournalEntry.find(
+                    JournalEntry.user_id == user_id, JournalEntry.created_at >= week_ago
+                )
+                .sort("-created_at")
+                .to_list()
+            )
 
             # Analyze sentiment from mood scores
-            mood_scores = [entry.mood_score for entry in journal_entries if entry.mood_score is not None]
+            mood_scores = [
+                entry.mood_score for entry in journal_entries if entry.mood_score is not None
+            ]
 
             if mood_scores:
                 avg_sentiment = sum(mood_scores) / len(mood_scores)
@@ -588,10 +571,10 @@ Guidelines:
                     {
                         "content": entry.content[:200],
                         "mood_score": entry.mood_score,
-                        "created_at": entry.created_at
+                        "created_at": entry.created_at,
                     }
                     for entry in journal_entries[:5]  # Last 5 entries
-                ]
+                ],
             }
 
         except Exception as e:
@@ -601,7 +584,7 @@ Guidelines:
                 "sentiment_trend": "insufficient_data",
                 "average_sentiment": 5.0,
                 "journal_count": 0,
-                "journal_entries": []
+                "journal_entries": [],
             }
 
     def _build_reflection_system_prompt(self, context: dict, memories: list) -> str:
@@ -644,13 +627,14 @@ Guidelines:
             from app.ai.security import AISecurityValidator, SecurityConfig
 
             security_config = SecurityConfig(
-                enable_prompt_injection_detection=True,
-                enable_input_sanitization=True
+                enable_prompt_injection_detection=True, enable_input_sanitization=True
             )
             security_validator = AISecurityValidator(security_config)
 
             # Detect prompt injection
-            is_injection, injection_reason = security_validator.detect_prompt_injection(user_message)
+            is_injection, injection_reason = security_validator.detect_prompt_injection(
+                user_message
+            )
 
             # Analyze for crisis indicators (more sophisticated than simple keywords)
             crisis_indicators = self._detect_crisis_indicators(user_message)
@@ -662,7 +646,7 @@ Guidelines:
                 "crisis_indicators": crisis_indicators,
                 "prompt_injection_detected": is_injection,
                 "prompt_injection_reason": injection_reason if is_injection else None,
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
             }
 
         except Exception as e:
@@ -672,15 +656,24 @@ Guidelines:
                 "user_message": user_message,
                 "crisis_detected": True,  # Err on side of caution
                 "crisis_indicators": ["error_in_analysis"],
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
             }
 
     def _detect_crisis_indicators(self, message: str) -> list[str]:
         """Detect crisis indicators beyond simple keyword matching."""
         crisis_keywords = [
-            "suicide", "kill myself", "end it all", "want to die",
-            "hopeless", "no point", "can't go on", "give up",
-            "overwhelmed", "can't cope", "too much", "breaking point"
+            "suicide",
+            "kill myself",
+            "end it all",
+            "want to die",
+            "hopeless",
+            "no point",
+            "can't go on",
+            "give up",
+            "overwhelmed",
+            "can't cope",
+            "too much",
+            "breaking point",
         ]
 
         message_lower = message.lower()
@@ -711,10 +704,7 @@ Guidelines:
         return min(base_severity, 1.0)
 
     async def _generate_reflection_insights(
-        self,
-        user_id: uuid.UUID,
-        session_id: uuid.UUID,
-        context: dict
+        self, user_id: uuid.UUID, session_id: uuid.UUID, context: dict
     ) -> list[AIInsight]:
         """Generate and store AI insights from reflection."""
         insights = []
@@ -726,15 +716,12 @@ Guidelines:
             pillar="mental_health",
             payload={
                 "trend": context.get("sentiment_trend", "stable"),
-                "correlation": {
-                    "sleep_quality": 0.75,
-                    "journal_frequency": 0.82
-                },
-                "recommendation": "Your mood has been improving with consistent journaling."
+                "correlation": {"sleep_quality": 0.75, "journal_frequency": 0.82},
+                "recommendation": "Your mood has been improving with consistent journaling.",
             },
             confidence=0.85,
             session_id=session_id,
-            expires_at=datetime.now()  # Will be set by TTL index
+            expires_at=datetime.now(),  # Will be set by TTL index
         )
         await trend_insight.insert()
         insights.append(trend_insight)
@@ -743,11 +730,7 @@ Guidelines:
         return insights
 
     async def _log_escalation(
-        self,
-        user_id: uuid.UUID,
-        session_id: uuid.UUID,
-        context: dict,
-        severity_level: float
+        self, user_id: uuid.UUID, session_id: uuid.UUID, context: dict, severity_level: float
     ) -> None:
         """Log escalation to compliance channel with persistent storage."""
         try:
@@ -763,9 +746,9 @@ Guidelines:
                     "crisis_detected": context.get("crisis_detected", False),
                     "crisis_indicators": context.get("crisis_indicators", []),
                     "user_message": context.get("user_message", "")[:500],  # Truncate for storage
-                    "timestamp": context.get("timestamp", datetime.now()).isoformat()
+                    "timestamp": context.get("timestamp", datetime.now()).isoformat(),
                 },
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
 
             await compliance_event.insert()

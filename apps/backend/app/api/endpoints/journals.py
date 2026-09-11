@@ -16,12 +16,14 @@ router = APIRouter()
 
 class JournalEntryCreate(BaseModel):
     """Schema for creating a journal entry."""
+
     content: str = Field(..., min_length=1, description="Journal entry content")
     mood_score: Optional[int] = Field(None, ge=1, le=10, description="Mood score from 1-10")
 
 
 class JournalEntryResponse(BaseModel):
     """Schema for journal entry response."""
+
     id: PydanticObjectId
     user_id: uuid.UUID
     content: str

@@ -1,6 +1,7 @@
 import PyPDF2
 from typing import List
 
+
 class DocumentChunker:
     """Handles text chunking and PDF text extraction."""
 
@@ -34,7 +35,7 @@ class DocumentChunker:
             # If we're not at the end of the text, try to find a word boundary
             if end < text_length:
                 # Look backwards from end to find a space
-                while end > start and text[end] != ' ':
+                while end > start and text[end] != " ":
                     end -= 1
 
                 # If no space found, force split at chunk_size
@@ -73,7 +74,7 @@ class DocumentChunker:
         """
         text = ""
 
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             pdf_reader = PyPDF2.PdfReader(file)
 
             for page in pdf_reader.pages:

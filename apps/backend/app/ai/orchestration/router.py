@@ -8,6 +8,7 @@ This module provides:
 - Fallback and error handling
 - Performance monitoring
 """
+
 import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RoutingDecision:
     """Result of routing decision."""
+
     agent_type: str
     confidence: float
     reasoning: str
@@ -138,7 +140,9 @@ class AIOrchestrator:
         try:
             # Step 1: Route request
             routing = await self.route_request(query, user_id, conversation_history)
-            logger.info(f"Routed request to {routing.agent_type} (confidence: {routing.confidence})")
+            logger.info(
+                f"Routed request to {routing.agent_type} (confidence: {routing.confidence})"
+            )
 
             # Step 2: Get agent
             agent = self._agents.get(routing.agent_type)

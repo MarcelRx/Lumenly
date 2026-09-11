@@ -16,11 +16,15 @@ router = APIRouter()
 
 class AIQueryRequest(BaseModel):
     """Request schema for AI query endpoint."""
-    query: str = Field(..., min_length=1, max_length=10000, description="The user's question or query")
+
+    query: str = Field(
+        ..., min_length=1, max_length=10000, description="The user's question or query"
+    )
 
 
 class AIQueryResponse(BaseModel):
     """Response schema for AI query endpoint."""
+
     answer: str = Field(..., description="The AI-generated answer")
     context_used: dict = Field(default_factory=dict, description="Context used for generation")
     retrieval_stats: dict = Field(default_factory=dict, description="Retrieval statistics")
@@ -70,17 +74,19 @@ async def ask_ai(
         logger.error(f"LLM provider error for user {current_user.id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI service temporarily unavailable. Please try again later."
+            detail="AI service temporarily unavailable. Please try again later.",
         )
     except ValueError as e:
         logger.error(f"Validation error for user {current_user.id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid request. Please check your input."
+            detail="Invalid request. Please check your input.",
         )
     except Exception as e:
-        logger.error(f"Unexpected error processing AI query for user {current_user.id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error processing AI query for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred. Please try again later."
+            detail="An unexpected error occurred. Please try again later.",
         )

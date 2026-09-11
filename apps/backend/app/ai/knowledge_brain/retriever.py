@@ -6,7 +6,9 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 class KnowledgeRetriever:
     """Handles retrieval of knowledge from the knowledge base."""
 
-    def __init__(self, qdrant_client: AsyncQdrantClient, embed_func: Callable[[str], Awaitable[list[float]]]):
+    def __init__(
+        self, qdrant_client: AsyncQdrantClient, embed_func: Callable[[str], Awaitable[list[float]]]
+    ):
         """
         Initialize the KnowledgeRetriever.
 
@@ -18,12 +20,7 @@ class KnowledgeRetriever:
         self.embed_func = embed_func
         self.collection_name = "knowledge_base"
 
-    async def search_knowledge(
-        self,
-        user_id: str,
-        query: str,
-        top_k: int = 3
-    ) -> List[Dict]:
+    async def search_knowledge(self, user_id: str, query: str, top_k: int = 3) -> List[Dict]:
         """
         Search the knowledge base for relevant chunks.
 
@@ -39,14 +36,7 @@ class KnowledgeRetriever:
         query_embedding = await self.embed_func(query)
 
         # Create filter for user_id
-        query_filter = Filter(
-            must=[
-                FieldCondition(
-                    key="user_id",
-                    match=MatchValue(value=user_id)
-                )
-            ]
-        )
+        query_filter = Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
 
         # Search Qdrant using query_points (compatible with qdrant-client >= 1.16.0)
         response = await self.qdrant_client.query_points(
@@ -54,7 +44,7 @@ class KnowledgeRetriever:
             query=query_embedding,
             query_filter=query_filter,
             limit=top_k,
-            with_payload=True
+            with_payload=True,
         )
 
         # Extract points from the query response
@@ -64,10 +54,12 @@ class KnowledgeRetriever:
         results = []
         for result in search_results:
             payload = result.payload or {}
-            results.append({
-                "document_title": payload.get("document_title", ""),
-                "chunk_text": payload.get("chunk_text", ""),
-                "score": result.score
-            })
+            results.append(
+                {
+                    "document_title": payload.get("document_title", ""),
+                    "chunk_text": payload.get("chunk_text", ""),
+                    "score": result.score,
+                }
+            )
 
         return results

@@ -49,8 +49,7 @@ credentials_exception = HTTPException(
 
 
 async def check_websocket_rate_limit(
-    user_id: uuid.UUID,
-    limit_type: str = "connection"
+    user_id: uuid.UUID, limit_type: str = "connection"
 ) -> tuple[bool, Optional[str]]:
     """
     Check WebSocket rate limits using Redis.
@@ -87,13 +86,13 @@ async def check_websocket_rate_limit(
         if current_count >= limit:
             # Track WebSocket rate limit violations
             rate_limit_violations_total.labels(
-                limit_type=f"websocket_{limit_type}",
-                user_role="authenticated"
+                limit_type=f"websocket_{limit_type}", user_role="authenticated"
             ).inc()
             return False, f"Rate limit exceeded for {limit_type}"
 
         # Add current request
         import uuid as uuid_lib
+
         member_id = f"{current_time}_{uuid_lib.uuid4().hex}"
         await redis_client.zadd(key, {member_id: current_time})
         await redis_client.expire(key, window + 10)
@@ -117,14 +116,18 @@ async def get_websocket_user(
     The token should be passed as a query parameter: ws://host/path?token=xyz
     """
     if not token:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication token")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication token"
+        )
         raise credentials_exception
 
     try:
         payload = decode_access_token(token)
         user_id: str | None = payload.get("sub")
         if user_id is None:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token payload")
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token payload"
+            )
             raise credentials_exception
 
     except ExpiredSignatureError:
@@ -158,6 +161,7 @@ async def get_websocket_user(
             )
 
         return user
+
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -201,8 +205,7 @@ class ConnectionManager:
                 message_type = message.get("type", "unknown")
                 try:
                     websocket_messages_total.labels(
-                        message_type=message_type,
-                        direction="outgoing"
+                        message_type=message_type, direction="outgoing"
                     ).inc()
                 except Exception as e:
                     logger.error(f"Failed to track outgoing message metrics: {e}")
@@ -210,6 +213,7 @@ class ConnectionManager:
                 logger.error(f"Failed to send message to session {session_id}: {e}")
                 websocket_message_failures_total.labels(failure_type="send_error").inc()
                 self.disconnect(session_id, reason="send_error")
+
 
 manager = ConnectionManager()
 
@@ -262,10 +266,12 @@ async def create_coaching_session(
         )
 
     except Exception as e:
-        logger.error(f"Failed to create coaching session for user {current_user.id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to create coaching session for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create coaching session. Please try again later."
+            detail="Failed to create coaching session. Please try again later.",
         )
 
 
@@ -293,8 +299,7 @@ async def get_coaching_history(
                 query = query.find(CoachingSession.session_type == session_type_enum)
             except ValueError:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid session_type"
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session_type"
                 )
 
         # Apply cursor pagination if provided
@@ -304,8 +309,7 @@ async def get_coaching_history(
                 query = query.find(CoachingSession.id > cursor_uuid)
             except ValueError:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid cursor format"
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor format"
                 )
 
         # Sort by started_at descending and apply limit
@@ -359,10 +363,12 @@ async def get_coaching_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to retrieve coaching history for user {current_user.id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to retrieve coaching history for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve coaching history. Please try again later."
+            detail="Failed to retrieve coaching history. Please try again later.",
         )
 
 
@@ -380,6 +386,7 @@ async def get_coaching_insights(
     try:
         # Build query with tenant isolation
         from app.models.domain import AIInsight
+
         query = AIInsight.find(AIInsight.user_id == current_user.id)
 
         # Apply insight type filter if provided
@@ -405,6 +412,7 @@ async def get_coaching_insights(
 
         # Convert to response models
         from app.schemas.coaching import InsightResponse
+
         insight_responses = [
             InsightResponse(
                 id=insight.id,
@@ -420,9 +428,7 @@ async def get_coaching_insights(
             for insight in insights
         ]
 
-        logger.info(
-            f"Retrieved {len(insight_responses)} insights for user {current_user.id}"
-        )
+        logger.info(f"Retrieved {len(insight_responses)} insights for user {current_user.id}")
 
         return CoachingInsightsResponse(
             insights=insight_responses,
@@ -430,10 +436,12 @@ async def get_coaching_insights(
         )
 
     except Exception as e:
-        logger.error(f"Failed to retrieve coaching insights for user {current_user.id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to retrieve coaching insights for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve coaching insights. Please try again later."
+            detail="Failed to retrieve coaching insights. Please try again later.",
         )
 
 
@@ -474,7 +482,9 @@ async def coaching_websocket(
     # Step 2: Check connection rate limit
     is_allowed, rate_limit_error = await check_websocket_rate_limit(user.id, "connection")
     if not is_allowed:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=rate_limit_error or "Rate limit exceeded")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason=rate_limit_error or "Rate limit exceeded"
+        )
         logger.warning(f"WebSocket connection rate limited for user {user.id}: {rate_limit_error}")
         return
 
@@ -485,20 +495,18 @@ async def coaching_websocket(
         # Step 3: Verify session exists and belongs to authenticated user
         session = await CoachingSession.get(session_id)
         if not session:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Session not found"
-            })
+            await websocket.send_json({"type": "error", "message": "Session not found"})
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            logger.warning(f"WebSocket connection rejected: Session {session_id} not found for user {user.id}")
+            logger.warning(
+                f"WebSocket connection rejected: Session {session_id} not found for user {user.id}"
+            )
             return
 
         # Step 4: Verify session ownership (multi-tenant isolation)
         if session.user_id != user.id:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Unauthorized access to session"
-            })
+            await websocket.send_json(
+                {"type": "error", "message": "Unauthorized access to session"}
+            )
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             logger.warning(
                 f"WebSocket connection rejected: User {user.id} attempted to access "
@@ -507,17 +515,17 @@ async def coaching_websocket(
             return
 
         # Step 5: Send session context
-        await websocket.send_json({
-            "type": "assistant_message",
-            "content": f"Connected to coaching session: {session.title or session.session_type.value}",
-            "session_type": session.session_type.value,
-            "agent_id": session.agent_id,
-            "user_id": str(user.id)  # Include user_id for client reference
-        })
-
-        logger.info(
-            f"WebSocket connected for session {session_id} by authenticated user {user.id}"
+        await websocket.send_json(
+            {
+                "type": "assistant_message",
+                "content": f"Connected to coaching session: {session.title or session.session_type.value}",
+                "session_type": session.session_type.value,
+                "agent_id": session.agent_id,
+                "user_id": str(user.id),  # Include user_id for client reference
+            }
         )
+
+        logger.info(f"WebSocket connected for session {session_id} by authenticated user {user.id}")
 
         # Message handling loop
         while True:
@@ -525,26 +533,30 @@ async def coaching_websocket(
                 # Receive message with timeout
                 data = await asyncio.wait_for(
                     websocket.receive_json(),
-                    timeout=30.0  # 30-second timeout for messages
+                    timeout=30.0,  # 30-second timeout for messages
                 )
 
                 # Check message rate limit
                 is_allowed, rate_limit_error = await check_websocket_rate_limit(user.id, "message")
                 if not is_allowed:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": rate_limit_error or "Message rate limit exceeded"
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": rate_limit_error or "Message rate limit exceeded",
+                        }
+                    )
                     logger.warning(f"Message rate limited for user {user.id}")
                     continue
 
                 # Validate message size
                 message_str = str(data)
                 if len(message_str) > WS_MAX_MESSAGE_SIZE:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"Message too large (max {WS_MAX_MESSAGE_SIZE} characters)"
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": f"Message too large (max {WS_MAX_MESSAGE_SIZE} characters)",
+                        }
+                    )
                     logger.warning(f"Oversized message from user {user.id}")
                     continue
 
@@ -553,8 +565,7 @@ async def coaching_websocket(
                 # Track message metrics
                 try:
                     websocket_messages_total.labels(
-                        message_type=message_type or "unknown",
-                        direction="incoming"
+                        message_type=message_type or "unknown", direction="incoming"
                     ).inc()
                 except Exception as e:
                     logger.error(f"Failed to track message metrics: {e}")
@@ -565,12 +576,16 @@ async def coaching_websocket(
 
                 elif message_type == "tool_call":
                     # Check tool call rate limit
-                    is_allowed, rate_limit_error = await check_websocket_rate_limit(user.id, "tool_call")
+                    is_allowed, rate_limit_error = await check_websocket_rate_limit(
+                        user.id, "tool_call"
+                    )
                     if not is_allowed:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": rate_limit_error or "Tool call rate limit exceeded"
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": rate_limit_error or "Tool call rate limit exceeded",
+                            }
+                        )
                         logger.warning(f"Tool call rate limited for user {user.id}")
                         continue
 
@@ -581,10 +596,12 @@ async def coaching_websocket(
                     # Validate tool argument size
                     args_str = str(tool_args)
                     if len(args_str) > WS_MAX_TOOL_ARG_SIZE:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Tool arguments too large (max {WS_MAX_TOOL_ARG_SIZE} characters)"
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": f"Tool arguments too large (max {WS_MAX_TOOL_ARG_SIZE} characters)",
+                            }
+                        )
                         logger.warning(f"Oversized tool arguments from user {user.id}")
                         continue
 
@@ -594,46 +611,47 @@ async def coaching_websocket(
                         # Execute tool through secure registry with user context
                         tool_result = await asyncio.wait_for(
                             execute_tool(tool_name, tool_args, user.id, "authenticated"),
-                            timeout=5.0
+                            timeout=5.0,
                         )
 
-                        await websocket.send_json({
-                            "type": "tool_response",
-                            "tool_name": tool_name,
-                            "result": tool_result
-                        })
+                        await websocket.send_json(
+                            {"type": "tool_response", "tool_name": tool_name, "result": tool_result}
+                        )
                     except asyncio.TimeoutError:
                         logger.warning(f"Tool call timeout for {tool_name} in session {session_id}")
                         websocket_message_failures_total.labels(failure_type="tool_timeout").inc()
-                        await websocket.send_json({
-                            "type": "tool_response",
-                            "tool_name": tool_name,
-                            "result": {"error": "Tool execution timeout"},
-                            "fallback": True
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "tool_response",
+                                "tool_name": tool_name,
+                                "result": {"error": "Tool execution timeout"},
+                                "fallback": True,
+                            }
+                        )
                     except ValueError as e:
                         # Tool validation/registration error
                         logger.warning(f"Tool validation failed for {tool_name}: {e}")
-                        websocket_message_failures_total.labels(failure_type="tool_validation").inc()
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Tool validation failed: {str(e)}"
-                        })
+                        websocket_message_failures_total.labels(
+                            failure_type="tool_validation"
+                        ).inc()
+                        await websocket.send_json(
+                            {"type": "error", "message": f"Tool validation failed: {str(e)}"}
+                        )
                     except PermissionError as e:
                         # Tool authorization error
                         logger.warning(f"Tool authorization failed for {tool_name}: {e}")
-                        websocket_message_failures_total.labels(failure_type="tool_authorization").inc()
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Tool authorization failed: {str(e)}"
-                        })
+                        websocket_message_failures_total.labels(
+                            failure_type="tool_authorization"
+                        ).inc()
+                        await websocket.send_json(
+                            {"type": "error", "message": f"Tool authorization failed: {str(e)}"}
+                        )
                     except Exception as e:
                         logger.error(f"Tool execution failed: {e}")
                         websocket_message_failures_total.labels(failure_type="tool_execution").inc()
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Tool execution failed: {str(e)}"
-                        })
+                        await websocket.send_json(
+                            {"type": "error", "message": f"Tool execution failed: {str(e)}"}
+                        )
 
                 elif message_type == "user_message":
                     # Handle user message with coaching service integration
@@ -650,40 +668,48 @@ async def coaching_websocket(
                         memory_manager = MemoryManager()
                         agent_router = AgentRouter()
                         coaching_service = CoachingFlowService(
-                            memory_manager=memory_manager,
-                            agent_router=agent_router
+                            memory_manager=memory_manager, agent_router=agent_router
                         )
 
                         # Generate response based on session type
                         if session.session_type == SessionType.ASSESSMENT:
-                            response = await coaching_service.handle_assessment_flow(session, user_content)
+                            response = await coaching_service.handle_assessment_flow(
+                                session, user_content
+                            )
                         elif session.session_type == SessionType.NUDGE:
-                            response = await coaching_service.handle_nudge_flow(session, user_content)
+                            response = await coaching_service.handle_nudge_flow(
+                                session, user_content
+                            )
                         elif session.session_type == SessionType.REFLECTION:
-                            response = await coaching_service.handle_reflection_flow(session, user_content)
+                            response = await coaching_service.handle_reflection_flow(
+                                session, user_content
+                            )
                         elif session.session_type == SessionType.ESCALATION:
-                            response = await coaching_service.handle_escalation_flow(session, user_content)
+                            response = await coaching_service.handle_escalation_flow(
+                                session, user_content
+                            )
                         else:
                             response = {
                                 "type": "assistant_message",
-                                "content": "I'm here to help you. What would you like to discuss?"
+                                "content": "I'm here to help you. What would you like to discuss?",
                             }
 
                         await websocket.send_json(response)
 
                     except Exception as e:
                         logger.error(f"Coaching service error: {e}")
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": "Failed to process your message. Please try again."
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": "Failed to process your message. Please try again.",
+                            }
+                        )
 
                 else:
                     logger.warning(f"Unknown message type: {message_type}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"Unknown message type: {message_type}"
-                    })
+                    await websocket.send_json(
+                        {"type": "error", "message": f"Unknown message type: {message_type}"}
+                    )
 
             except asyncio.TimeoutError:
                 # Send heartbeat if no message received
@@ -695,10 +721,7 @@ async def coaching_websocket(
 
             except Exception as e:
                 logger.error(f"Error processing message in session {session_id}: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Error processing message"
-                })
+                await websocket.send_json({"type": "error", "message": "Error processing message"})
 
     finally:
         manager.disconnect(session_id)
@@ -710,7 +733,9 @@ async def coaching_websocket(
             await session.save()
 
 
-async def execute_tool(tool_name: str, tool_args: dict, user_id: uuid.UUID, user_role: str = "authenticated") -> dict:
+async def execute_tool(
+    tool_name: str, tool_args: dict, user_id: uuid.UUID, user_role: str = "authenticated"
+) -> dict:
     """
     Execute a tool call through the secure tool registry.
 
@@ -738,10 +763,7 @@ async def execute_tool(tool_name: str, tool_args: dict, user_id: uuid.UUID, user
 
     try:
         result = await tool_registry.execute_tool(
-            tool_name=tool_name,
-            arguments=tool_args,
-            user_id=user_id,
-            user_role=user_role
+            tool_name=tool_name, arguments=tool_args, user_id=user_id, user_role=user_role
         )
         return result
     except ValueError as e:

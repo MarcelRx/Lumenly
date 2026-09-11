@@ -63,11 +63,8 @@ async def lifespan(app: FastAPI):
     await close_qdrant()
     await close_redis()
 
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.VERSION,
-    lifespan=lifespan
-)
+
+app = FastAPI(title=settings.APP_NAME, version=settings.VERSION, lifespan=lifespan)
 
 # Production-safe CORS configuration
 allowed_origins = parse_cors_origins(settings.ALLOW_ORIGINS)
@@ -89,10 +86,11 @@ if settings.APP_ENV == "production" and "*" in allowed_origins:
 # Security check: staging should also use restrictive CORS by default
 if settings.APP_ENV == "staging" and "*" in allowed_origins:
     import warnings
+
     warnings.warn(
         "Wildcard CORS origins in staging environment. "
         "Consider using specific origins for better security.",
-        RuntimeWarning
+        RuntimeWarning,
     )
 
 # Fallback to localhost for development if no origins specified
@@ -107,6 +105,7 @@ except ValueError as e:
         raise ValueError(f"Embedding configuration validation failed: {e}")
     else:
         import warnings
+
         warnings.warn(f"Embedding configuration validation failed: {e}", RuntimeWarning)
 
 # Production configuration validation
@@ -125,9 +124,7 @@ if settings.APP_ENV == "production":
         )
 
     if settings.SECRET_KEY == settings.JWT_SECRET:
-        raise ValueError(
-            "SECRET_KEY and JWT_SECRET must be different for security."
-        )
+        raise ValueError("SECRET_KEY and JWT_SECRET must be different for security.")
 
     if settings.RATE_LIMIT_ENABLED and settings.RATE_LIMIT_FAIL_OPEN:
         raise ValueError(
@@ -138,24 +135,16 @@ if settings.APP_ENV == "production":
 
     # Validate required infrastructure URLs
     if not settings.POSTGRES_URL or "localhost" in settings.POSTGRES_URL:
-        raise ValueError(
-            "POSTGRES_URL must be configured for production without localhost."
-        )
+        raise ValueError("POSTGRES_URL must be configured for production without localhost.")
 
     if not settings.MONGODB_URL or "localhost" in settings.MONGODB_URL:
-        raise ValueError(
-            "MONGODB_URL must be configured for production without localhost."
-        )
+        raise ValueError("MONGODB_URL must be configured for production without localhost.")
 
     if not settings.REDIS_URL or "localhost" in settings.REDIS_URL:
-        raise ValueError(
-            "REDIS_URL must be configured for production without localhost."
-        )
+        raise ValueError("REDIS_URL must be configured for production without localhost.")
 
     if not settings.QDRANT_URL or "localhost" in settings.QDRANT_URL:
-        raise ValueError(
-            "QDRANT_URL must be configured for production without localhost."
-        )
+        raise ValueError("QDRANT_URL must be configured for production without localhost.")
 
     # Validate API keys are set for production
     if not settings.GROQ_API_KEY and not settings.GEMINI_API_KEY:
@@ -193,6 +182,7 @@ app.middleware("http")(metrics_middleware)
 
 # Rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
+
 
 # Request correlation middleware with validation and context propagation
 @app.middleware("http")
@@ -234,8 +224,8 @@ async def add_process_time_and_uuid_middleware(request: Request, call_next):
                 "event": "http_request_start",
                 "method": request.method,
                 "path": request.url.path,
-                "client_ip": request.client.host if request.client else "unknown"
-            }
+                "client_ip": request.client.host if request.client else "unknown",
+            },
         )
 
     response = await call_next(request)
@@ -251,7 +241,7 @@ async def add_process_time_and_uuid_middleware(request: Request, call_next):
             "method": request.method,
             "path": request.url.path,
             "status_code": response.status_code,
-            "duration_ms": round(process_time * 1000, 2)
+            "duration_ms": round(process_time * 1000, 2),
         }
 
         if response.status_code < 400:
@@ -262,6 +252,7 @@ async def add_process_time_and_uuid_middleware(request: Request, call_next):
             logger.error("HTTP request completed with error", extra=extra_data)
 
     return response
+
 
 # Global exception handler with enhanced observability
 @app.exception_handler(Exception)
@@ -288,8 +279,8 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error_message": str(exc),
             "method": request.method,
             "path": request.url.path,
-            "error_category": "unexpected_error"
-        }
+            "error_category": "unexpected_error",
+        },
     )
 
     # Return safe error response to client
@@ -300,14 +291,12 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "An unexpected error occurred on the server.",
-                "details": str(exc) if settings.APP_ENV == "development" else None
+                "details": str(exc) if settings.APP_ENV == "development" else None,
             },
-            "meta": {
-                "requestId": request_id,
-                "timestamp": int(time.time())
-            }
-        }
+            "meta": {"requestId": request_id, "timestamp": int(time.time())},
+        },
     )
+
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
@@ -319,16 +308,14 @@ app.include_router(ai_router, prefix="/v1/ai", tags=["ai"])
 app.include_router(coaching_router, prefix="/v1/coaching", tags=["coaching"])
 app.include_router(metrics_router, prefix="/v1", tags=["metrics"])
 
+
 @app.get("/health/live", tags=["Health"])
 async def liveness_check():
     """
     Liveness probe - confirms the application process is alive.
     Does NOT depend on external databases.
     """
-    return {
-        "status": "alive",
-        "service": "lumenly-api"
-    }
+    return {"status": "alive", "service": "lumenly-api"}
 
 
 @app.get("/health/ready", tags=["Health"])
@@ -337,11 +324,7 @@ async def readiness_check():
     Readiness probe - determines whether the application can safely receive traffic.
     Verifies actual configured dependencies: PostgreSQL, MongoDB, Redis, Qdrant.
     """
-    health_status = {
-        "status": "ready",
-        "service": "lumenly-api",
-        "checks": {}
-    }
+    health_status = {"status": "ready", "service": "lumenly-api", "checks": {}}
 
     overall_healthy = True
 
@@ -351,30 +334,30 @@ async def readiness_check():
             async with AsyncSessionLocal() as session:
                 await session.execute(text("SELECT 1"))
         health_status["checks"]["postgres"] = {"status": "healthy"}
-        database_health_status.labels(database='postgresql').set(1)
+        database_health_status.labels(database="postgresql").set(1)
     except TimeoutError:
         health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "timeout"}
-        database_health_status.labels(database='postgresql').set(0)
+        database_health_status.labels(database="postgresql").set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["postgres"] = {"status": "unhealthy", "error": "connection_failed"}
-        database_health_status.labels(database='postgresql').set(0)
+        database_health_status.labels(database="postgresql").set(0)
         overall_healthy = False
 
     # Check MongoDB with timeout
     try:
         async with timeout(5.0):
             mongo_client = get_mongo_client()
-            await mongo_client.admin.command('ping')
+            await mongo_client.admin.command("ping")
         health_status["checks"]["mongodb"] = {"status": "healthy"}
-        database_health_status.labels(database='mongodb').set(1)
+        database_health_status.labels(database="mongodb").set(1)
     except TimeoutError:
         health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "timeout"}
-        database_health_status.labels(database='mongodb').set(0)
+        database_health_status.labels(database="mongodb").set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["mongodb"] = {"status": "unhealthy", "error": "connection_failed"}
-        database_health_status.labels(database='mongodb').set(0)
+        database_health_status.labels(database="mongodb").set(0)
         overall_healthy = False
 
     # Check Redis with timeout
@@ -383,14 +366,14 @@ async def readiness_check():
             redis_client = get_redis_client()
             await redis_client.ping()
         health_status["checks"]["redis"] = {"status": "healthy"}
-        database_health_status.labels(database='redis').set(1)
+        database_health_status.labels(database="redis").set(1)
     except TimeoutError:
         health_status["checks"]["redis"] = {"status": "unhealthy", "error": "timeout"}
-        database_health_status.labels(database='redis').set(0)
+        database_health_status.labels(database="redis").set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["redis"] = {"status": "unhealthy", "error": "connection_failed"}
-        database_health_status.labels(database='redis').set(0)
+        database_health_status.labels(database="redis").set(0)
         overall_healthy = False
 
     # Check Qdrant with timeout
@@ -399,22 +382,19 @@ async def readiness_check():
             qdrant_client = get_qdrant_client()
             await qdrant_client.get_collections()
         health_status["checks"]["qdrant"] = {"status": "healthy"}
-        database_health_status.labels(database='qdrant').set(1)
+        database_health_status.labels(database="qdrant").set(1)
     except TimeoutError:
         health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "timeout"}
-        database_health_status.labels(database='qdrant').set(0)
+        database_health_status.labels(database="qdrant").set(0)
         overall_healthy = False
     except Exception:
         health_status["checks"]["qdrant"] = {"status": "unhealthy", "error": "connection_failed"}
-        database_health_status.labels(database='qdrant').set(0)
+        database_health_status.labels(database="qdrant").set(0)
         overall_healthy = False
 
     if not overall_healthy:
         health_status["status"] = "not_ready"
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=health_status
-        )
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=health_status)
 
     return health_status
 
@@ -426,7 +406,4 @@ async def health_check():
     Legacy health check endpoint for backward compatibility.
     Returns basic status without dependency checks.
     """
-    return {
-        "status": "ok",
-        "service": "lumenly-api"
-    }
+    return {"status": "ok", "service": "lumenly-api"}

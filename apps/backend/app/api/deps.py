@@ -83,6 +83,7 @@ async def get_current_active_user(
 
 def require_role(allowed_roles: list[UserRole]):
     """Dependency factory to check if current user has required role."""
+
     async def role_checker(
         current_user: Annotated[User, Depends(get_current_active_user)],
     ) -> User:
@@ -92,6 +93,7 @@ def require_role(allowed_roles: list[UserRole]):
                 detail="Insufficient permissions",
             )
         return current_user
+
     return role_checker
 
 
@@ -111,9 +113,15 @@ async def get_llm_provider() -> LLMProviderInterface:
             if not key:
                 return False
             key_lower = key.lower()
-            return any(pattern in key_lower for pattern in [
-                "test_", "replace_before_production", "do_not_use_in_production", "mock"
-            ])
+            return any(
+                pattern in key_lower
+                for pattern in [
+                    "test_",
+                    "replace_before_production",
+                    "do_not_use_in_production",
+                    "mock",
+                ]
+            )
 
         if groq_key_valid and not is_placeholder_key(groq_key):
             provider_name = "groq"
@@ -140,9 +148,15 @@ async def get_llm_provider() -> LLMProviderInterface:
             if not key:
                 return False
             key_lower = key.lower()
-            return any(pattern in key_lower for pattern in [
-                "test_", "replace_before_production", "do_not_use_in_production", "mock"
-            ])
+            return any(
+                pattern in key_lower
+                for pattern in [
+                    "test_",
+                    "replace_before_production",
+                    "do_not_use_in_production",
+                    "mock",
+                ]
+            )
 
         if gemini_key and len(gemini_key) >= 30 and not is_placeholder_key(gemini_key):
             provider_name = "gemini"
@@ -155,7 +169,7 @@ async def get_llm_provider() -> LLMProviderInterface:
     model_map = {
         "groq": "llama-3.3-70b-versatile",
         "gemini": settings.GEMINI_MODEL,
-        "mock": "mock-model"
+        "mock": "mock-model",
     }
 
     config = LLMConfig(
@@ -185,7 +199,7 @@ async def get_embedding_provider() -> EmbeddingProviderInterface:
         "cohere": settings.COHERE_API_KEY,
         "fastembed": None,
         "sentence_transformers": None,
-        "mock": "mock-key"
+        "mock": "mock-key",
     }
 
     # For mock provider, ensure we use the configured VECTOR_DIMENSION
@@ -260,5 +274,5 @@ async def get_coaching_service(
     return CoachingFlowService(
         memory_manager=memory_manager,
         agent_router=agent_router,
-        llm_provider_factory=LLMProviderFactory
+        llm_provider_factory=LLMProviderFactory,
     )

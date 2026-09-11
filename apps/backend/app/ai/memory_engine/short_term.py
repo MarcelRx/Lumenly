@@ -13,13 +13,7 @@ class ShortTermMemory:
     def __init__(self, redis_client: AsyncRedis):
         self.redis = redis_client
 
-    async def add_message(
-        self,
-        user_id: str,
-        role: str,
-        content: str,
-        limit: int = 20
-    ) -> None:
+    async def add_message(self, user_id: str, role: str, content: str, limit: int = 20) -> None:
         """
         Pushes a message to the user's chat history in Redis.
 

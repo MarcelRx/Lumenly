@@ -8,6 +8,7 @@ This module implements security verification for:
 - No metadata leakage
 - No retrieval outside user scope
 """
+
 import logging
 import re
 from datetime import datetime, timezone
@@ -34,32 +35,32 @@ class MemorySecurityValidator:
 
     # Patterns that could indicate prompt injection attempts
     PROMPT_INJECTION_PATTERNS = [
-        r'ignore (previous|all)?\s*instructions',
-        r'disregard (previous|all)?\s*(instructions|commands)',
-        r'forget (previous|all)?\s*(instructions|commands)',
-        r'override (previous|all)?\s*(instructions|commands)',
-        r'new (instructions|commands):',
-        r'system:',
-        r'assistant:',
-        r'<\|.*\|>',  # Special tokens often used for injection
-        r'\[INST\]',  # Instruction format used by some models
-        r'\[\/INST\]',
+        r"ignore (previous|all)?\s*instructions",
+        r"disregard (previous|all)?\s*(instructions|commands)",
+        r"forget (previous|all)?\s*(instructions|commands)",
+        r"override (previous|all)?\s*(instructions|commands)",
+        r"new (instructions|commands):",
+        r"system:",
+        r"assistant:",
+        r"<\|.*\|>",  # Special tokens often used for injection
+        r"\[INST\]",  # Instruction format used by some models
+        r"\[\/INST\]",
     ]
 
     # Sensitive metadata keys that should never be leaked
     SENSITIVE_METADATA_KEYS = [
-        'password',
-        'api_key',
-        'secret',
-        'token',
-        'private_key',
-        'auth',
-        'credential',
-        'credit_card',
-        'ssn',
-        'social_security',
-        'bank_account',
-        'credit',
+        "password",
+        "api_key",
+        "secret",
+        "token",
+        "private_key",
+        "auth",
+        "credential",
+        "credit_card",
+        "ssn",
+        "social_security",
+        "bank_account",
+        "credit",
     ]
 
     def __init__(self, storage: IMemoryStorage):
@@ -72,11 +73,7 @@ class MemorySecurityValidator:
         self.storage = storage
         logger.info("Initialized MemorySecurityValidator")
 
-    def verify_user_access(
-        self,
-        memory: MemoryRecord,
-        user_id: str
-    ) -> bool:
+    def verify_user_access(self, memory: MemoryRecord, user_id: str) -> bool:
         """
         Verify that a user has access to a memory.
 
@@ -93,10 +90,7 @@ class MemorySecurityValidator:
 
         return True
 
-    def verify_prompt_injection(
-        self,
-        content: str
-    ) -> tuple[bool, Optional[str]]:
+    def verify_prompt_injection(self, content: str) -> tuple[bool, Optional[str]]:
         """
         Check memory content for potential prompt injection attempts.
 
@@ -110,17 +104,12 @@ class MemorySecurityValidator:
 
         for pattern in self.PROMPT_INJECTION_PATTERNS:
             if re.search(pattern, content_lower):
-                logger.warning(
-                    f"Potential prompt injection detected: {pattern}"
-                )
+                logger.warning(f"Potential prompt injection detected: {pattern}")
                 return False, pattern
 
         return True, None
 
-    def verify_metadata_leakage(
-        self,
-        metadata: Dict[str, Any]
-    ) -> tuple[bool, List[str]]:
+    def verify_metadata_leakage(self, metadata: Dict[str, Any]) -> tuple[bool, List[str]]:
         """
         Check metadata for sensitive information leakage.
 
@@ -137,17 +126,11 @@ class MemorySecurityValidator:
             for sensitive_key in self.SENSITIVE_METADATA_KEYS:
                 if sensitive_key in key_lower:
                     leaked_keys.append(key)
-                    logger.warning(
-                        f"Potential metadata leakage detected: {key}"
-                    )
+                    logger.warning(f"Potential metadata leakage detected: {key}")
 
         return len(leaked_keys) == 0, leaked_keys
 
-    def verify_user_scope(
-        self,
-        user_id: str,
-        target_user_id: str
-    ) -> bool:
+    def verify_user_scope(self, user_id: str, target_user_id: str) -> bool:
         """
         Verify that operations are within proper user scope.
 
@@ -155,18 +138,13 @@ class MemorySecurityValidator:
         """
         if user_id != target_user_id:
             logger.warning(
-                f"Security violation: User {user_id} attempted operation "
-                f"on user {target_user_id}"
+                f"Security violation: User {user_id} attempted operation on user {target_user_id}"
             )
             return False
 
         return True
 
-    async def verify_memory_isolation(
-        self,
-        user_id: str,
-        sample_size: int = 10
-    ) -> Dict[str, Any]:
+    async def verify_memory_isolation(self, user_id: str, sample_size: int = 10) -> Dict[str, Any]:
         """
         Verify that memory isolation is working correctly.
 
@@ -182,20 +160,20 @@ class MemorySecurityValidator:
         try:
             # Get sample memories for the user
             memories = await self.storage.list_user_memories(
-                user_id=user_id,
-                limit=sample_size,
-                offset=0
+                user_id=user_id, limit=sample_size, offset=0
             )
 
             # Check each memory for proper ownership
             violations = []
             for memory in memories:
                 if not self.verify_user_access(memory, user_id):
-                    violations.append({
-                        "memory_id": memory.id,
-                        "expected_user": user_id,
-                        "actual_user": memory.user_id,
-                    })
+                    violations.append(
+                        {
+                            "memory_id": memory.id,
+                            "expected_user": user_id,
+                            "actual_user": memory.user_id,
+                        }
+                    )
 
             return {
                 "isolation_verified": len(violations) == 0,
@@ -212,11 +190,7 @@ class MemorySecurityValidator:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-    async def verify_query_isolation(
-        self,
-        user_id: str,
-        query: str
-    ) -> Dict[str, Any]:
+    async def verify_query_isolation(self, user_id: str, query: str) -> Dict[str, Any]:
         """
         Verify that a query respects user isolation.
 
@@ -246,10 +220,12 @@ class MemorySecurityValidator:
             violations = []
             for detected_id in detected_user_ids:
                 if detected_id != user_id:
-                    violations.append({
-                        "detected_user_id": detected_id,
-                        "current_user_id": user_id,
-                    })
+                    violations.append(
+                        {
+                            "detected_user_id": detected_id,
+                            "current_user_id": user_id,
+                        }
+                    )
 
             return {
                 "query_isolation_verified": len(violations) == 0,
@@ -266,10 +242,7 @@ class MemorySecurityValidator:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-    def sanitize_memory_content(
-        self,
-        content: str
-    ) -> str:
+    def sanitize_memory_content(self, content: str) -> str:
         """
         Sanitize memory content to prevent security issues.
 
@@ -282,17 +255,14 @@ class MemorySecurityValidator:
             Sanitized content
         """
         # Remove null bytes and other control characters
-        sanitized = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)
+        sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", content)
 
         # Normalize unicode to prevent homograph attacks
-        sanitized = sanitized.encode('utf-8', 'ignore').decode('utf-8')
+        sanitized = sanitized.encode("utf-8", "ignore").decode("utf-8")
 
         return sanitized
 
-    def sanitize_metadata(
-        self,
-        metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def sanitize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Sanitize metadata to prevent information leakage.
 
@@ -311,8 +281,7 @@ class MemorySecurityValidator:
 
             # Check if key is sensitive
             is_sensitive = any(
-                sensitive_key in key_lower
-                for sensitive_key in self.SENSITIVE_METADATA_KEYS
+                sensitive_key in key_lower for sensitive_key in self.SENSITIVE_METADATA_KEYS
             )
 
             if not is_sensitive:
@@ -322,10 +291,7 @@ class MemorySecurityValidator:
 
         return sanitized
 
-    async def verify_comprehensive_security(
-        self,
-        user_id: str
-    ) -> Dict[str, Any]:
+    async def verify_comprehensive_security(self, user_id: str) -> Dict[str, Any]:
         """
         Perform comprehensive security verification for a user.
 
@@ -348,13 +314,14 @@ class MemorySecurityValidator:
 
         # Verify query isolation with sample query
         results["checks"]["query_isolation"] = await self.verify_query_isolation(
-            user_id,
-            "test query"
+            user_id, "test query"
         )
 
         # Overall security status
         all_passed = all(
-            check_result.get("isolation_verified", check_result.get("query_isolation_verified", False))
+            check_result.get(
+                "isolation_verified", check_result.get("query_isolation_verified", False)
+            )
             for check_result in results["checks"].values()
         )
 
@@ -371,11 +338,7 @@ class MemorySecurityContext:
     that enforces security policies.
     """
 
-    def __init__(
-        self,
-        user_id: str,
-        validator: MemorySecurityValidator
-    ):
+    def __init__(self, user_id: str, validator: MemorySecurityValidator):
         """
         Initialize security context.
 

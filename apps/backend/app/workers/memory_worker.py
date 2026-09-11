@@ -6,6 +6,7 @@ This module provides synchronous implementations of memory operations
 for use in Celery workers. It uses synchronous database clients and
 does not create event loops.
 """
+
 import logging
 from typing import Dict, List, Optional
 
@@ -61,9 +62,7 @@ class SyncMemoryWorkerService:
         return self.redis_client
 
     def consolidate_user_memories_sync(
-        self,
-        user_id: str,
-        memory_type: Optional[str] = None
+        self, user_id: str, memory_type: Optional[str] = None
     ) -> List[Dict]:
         """
         Consolidate similar memories for a user (synchronous).
@@ -79,11 +78,7 @@ class SyncMemoryWorkerService:
         # This is a placeholder for the actual synchronous implementation
         return []
 
-    def cleanup_user_memories_sync(
-        self,
-        user_id: str,
-        policy_name: str = "default"
-    ) -> Dict:
+    def cleanup_user_memories_sync(self, user_id: str, policy_name: str = "default") -> Dict:
         """
         Clean up memories using forgetting policy (synchronous).
 
@@ -101,11 +96,7 @@ class SyncMemoryWorkerService:
             "total_evaluated": 0,
         }
 
-    def get_behavior_summary_sync(
-        self,
-        user_id: str,
-        time_range_days: int = 30
-    ) -> Dict:
+    def get_behavior_summary_sync(self, user_id: str, time_range_days: int = 30) -> Dict:
         """
         Get behavioral summary for a user (synchronous).
 
@@ -123,11 +114,7 @@ class SyncMemoryWorkerService:
             "overall_engagement": {},
         }
 
-    def summarize_memory_sync(
-        self,
-        memory_id: str,
-        user_id: str
-    ) -> Optional[str]:
+    def summarize_memory_sync(self, memory_id: str, user_id: str) -> Optional[str]:
         """
         Summarize a specific memory (synchronous).
 

@@ -41,16 +41,21 @@ VECTOR_SIZE = settings.VECTOR_DIMENSION
 # STEP 3: DASHBOARD SCHEMAS
 # -------------------------------------------------------------
 
+
 class KnowledgeBaseDocument(BaseModel):
     """Represents a single unique document found in the knowledge base."""
+
     # We use a combined key "userid::title" for unique ID for now
     id: str = Field(..., description="Unique ID for this document (UserID::Title).")
     title: str = Field(..., description="The title of the document.")
-    chunk_count: int = Field(..., description="Number of vectors/chunks belonging to this document.")
+    chunk_count: int = Field(
+        ..., description="Number of vectors/chunks belonging to this document."
+    )
 
 
 class DocumentListResponse(BaseModel):
     """Response containing the aggregated list of unique documents."""
+
     status: str = Field("success")
     documents: List[KnowledgeBaseDocument] = Field(default_factory=list)
 
@@ -58,6 +63,7 @@ class DocumentListResponse(BaseModel):
 # -------------------------------------------------------------
 # INTERNAL HELPERS
 # -------------------------------------------------------------
+
 
 async def generate_embedding(text: str, embedding_provider) -> list[float]:
     """Generate embedding using the configured embedding provider."""
@@ -72,19 +78,21 @@ async def ensure_collection_exists(collection_name: str) -> None:
             collection_name=collection_name,
             vectors_config=VectorParams(
                 size=VECTOR_SIZE,
-                distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
+                distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE),
             ),
         )
+
 
 # -------------------------------------------------------------
 # STEP 3, TASK B: DASHBOARD GET API ENDPOINT
 # -------------------------------------------------------------
 
+
 @router.get(
     "/documents",
     response_model=DocumentListResponse,
     summary="List unique document titles and stats in the knowledge base",
-    tags=["Dashboard"]
+    tags=["Dashboard"],
 )
 async def list_knowledge_base_documents(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -149,10 +157,7 @@ async def list_knowledge_base_documents(
 
             unique_docs_map[doc_key]["chunk_count"] += 1
 
-        documents = [
-            KnowledgeBaseDocument(**doc)
-            for doc in unique_docs_map.values()
-        ]
+        documents = [KnowledgeBaseDocument(**doc) for doc in unique_docs_map.values()]
 
         logger.info(
             "Retrieved %d documents for user %s",
@@ -177,15 +182,16 @@ async def list_knowledge_base_documents(
 # STEP 3, TASK D: Backend Delete service (Integrated)
 # -------------------------------------------------------------
 
+
 # We use the unique dashboard ID (UserID::Title) in the URL path
 @router.delete(
     "/documents/{doc_key}",
     status_code=status.HTTP_200_OK,
     summary="Delete all vectors chunks belonging to a single unique document title.",
-    tags=["Dashboard"]
+    tags=["Dashboard"],
 )
 async def delete_knowledge_base_document(
-    doc_key: str, # Combined key defined in GET logic above (UserId::Title)
+    doc_key: str,  # Combined key defined in GET logic above (UserId::Title)
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """
@@ -205,7 +211,9 @@ async def delete_knowledge_base_document(
 
     try:
         if not await client.collection_exists(COLLECTION_NAME):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base is empty.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base is empty."
+            )
 
         # 1. Authorize the user (Key parsing logic)
         # We split the key f"{userid}::{title}" safely
@@ -215,7 +223,9 @@ async def delete_knowledge_base_document(
         key_parts = doc_key.split("::", 1)
 
         if len(key_parts) != 2:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Document Key provided.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Document Key provided."
+            )
 
         payload_user_id = key_parts[0]
         payload_doc_title = key_parts[1]
@@ -224,10 +234,12 @@ async def delete_knowledge_base_document(
         if payload_user_id != current_user_id_str:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not authorized to delete this document."
+                detail="You are not authorized to delete this document.",
             )
 
-        logger.info(f"Authorized deletion request: Document '{payload_doc_title}' for user {current_user_id_str}")
+        logger.info(
+            f"Authorized deletion request: Document '{payload_doc_title}' for user {current_user_id_str}"
+        )
 
         # 2. Perform the destruction filter in Qdrant (Destroy point by filtering)
         points_filter = Filter(
@@ -241,11 +253,13 @@ async def delete_knowledge_base_document(
                 FieldCondition(
                     key="document_title",
                     match=MatchValue(value=payload_doc_title),
-                )
+                ),
             ]
         )
 
-        logger.debug(f"Executing Qdrant deletion filter on {COLLECTION_NAME} for {payload_doc_title}")
+        logger.debug(
+            f"Executing Qdrant deletion filter on {COLLECTION_NAME} for {payload_doc_title}"
+        )
 
         # Call Qdrant delete with filter (magic)
         await client.delete(
@@ -253,11 +267,13 @@ async def delete_knowledge_base_document(
             points_selector=points_filter,
         )
 
-        logger.info(f"SUCCESS: Deleted document '{payload_doc_title}' vector chunks from {COLLECTION_NAME}.")
+        logger.info(
+            f"SUCCESS: Deleted document '{payload_doc_title}' vector chunks from {COLLECTION_NAME}."
+        )
 
         return {
             "status": "success",
-            "message": f"Successfully deleted vectors for document '{payload_doc_title}'."
+            "message": f"Successfully deleted vectors for document '{payload_doc_title}'.",
         }
 
     except HTTPException as hexc:
@@ -275,6 +291,7 @@ async def delete_knowledge_base_document(
 # EXISTING AGENT ROUTING / INSERT ENDPOINTS
 # -------------------------------------------------------------
 
+
 @router.post(
     "/insert",
     response_model=DocumentInsertResponse,
@@ -284,7 +301,7 @@ async def delete_knowledge_base_document(
 async def insert_document(
     request: DocumentInsertRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    embedding_provider = Depends(get_embedding_provider),
+    embedding_provider=Depends(get_embedding_provider),
 ) -> DocumentInsertResponse:
     try:
         client = get_qdrant_client()
@@ -347,7 +364,7 @@ async def insert_document(
 async def search_documents(
     request: DocumentSearchRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    embedding_provider = Depends(get_embedding_provider),
+    embedding_provider=Depends(get_embedding_provider),
 ) -> DocumentSearchResponse:
     try:
         client = get_qdrant_client()

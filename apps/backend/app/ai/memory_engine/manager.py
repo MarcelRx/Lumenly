@@ -11,19 +11,12 @@ logger = logging.getLogger(__name__)
 class MemoryManager:
     """Orchestrates short-term and long-term memory for AI context building."""
 
-    def __init__(
-        self,
-        short_term: ShortTermMemory,
-        long_term: LongTermMemory
-    ):
+    def __init__(self, short_term: ShortTermMemory, long_term: LongTermMemory):
         self.short_term = short_term
         self.long_term = long_term
 
     async def build_context(
-        self,
-        user_id: str,
-        current_query: str,
-        query_vector: Optional[list[float]] = None
+        self, user_id: str, current_query: str, query_vector: Optional[list[float]] = None
     ) -> dict:
         """
         Gathers recent chat history and relevant long-term memories.
@@ -44,9 +37,7 @@ class MemoryManager:
             relevant_memories = []
             if query_vector is not None and len(query_vector) > 0:
                 relevant_memories = await self.long_term.retrieve_relevant(
-                    user_id=user_id,
-                    query_vector=query_vector,
-                    top_k=3
+                    user_id=user_id, query_vector=query_vector, top_k=3
                 )
 
             # Build system prompt with relevant memories
@@ -63,25 +54,14 @@ class MemoryManager:
                 f"{len(chat_history)} chat messages, {len(relevant_memories)} relevant memories"
             )
 
-            return {
-                "system_prompt": system_prompt,
-                "chat_history": chat_history
-            }
+            return {"system_prompt": system_prompt, "chat_history": chat_history}
 
         except Exception as e:
             logger.error(f"Failed to build context for user {user_id}: {e}")
             # Return empty context on error
-            return {
-                "system_prompt": "You are a helpful AI assistant.",
-                "chat_history": []
-            }
+            return {"system_prompt": "You are a helpful AI assistant.", "chat_history": []}
 
-    async def save_turn(
-        self,
-        user_id: str,
-        user_query: str,
-        assistant_response: str
-    ) -> None:
+    async def save_turn(self, user_id: str, user_query: str, assistant_response: str) -> None:
         """
         Saves a conversation turn (user query and assistant response) to short-term memory.
 
@@ -92,17 +72,11 @@ class MemoryManager:
         """
         try:
             # Save user message
-            await self.short_term.add_message(
-                user_id=user_id,
-                role="user",
-                content=user_query
-            )
+            await self.short_term.add_message(user_id=user_id, role="user", content=user_query)
 
             # Save assistant message
             await self.short_term.add_message(
-                user_id=user_id,
-                role="assistant",
-                content=assistant_response
+                user_id=user_id, role="assistant", content=assistant_response
             )
 
             logger.debug(f"Saved conversation turn for user {user_id}")

@@ -11,6 +11,7 @@ This interface provides a clean way to switch between:
 
 Without changing business logic.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict, Any, AsyncIterator
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMMessage:
     """Standardized message format for all LLM providers."""
+
     role: str  # "system", "user", "assistant", "tool"
     content: str
     tool_call_id: Optional[str] = None
@@ -31,6 +33,7 @@ class LLMMessage:
 @dataclass
 class LLMResponse:
     """Standardized response format for all LLM providers."""
+
     content: str
     tool_calls: Optional[List[Dict[str, Any]]] = None
     model: Optional[str] = None
@@ -40,6 +43,7 @@ class LLMResponse:
 @dataclass
 class LLMConfig:
     """Configuration for LLM providers."""
+
     provider: str  # "openai", "anthropic", "gemini", "groq", "ollama"
     model: str
     api_key: Optional[str] = None
@@ -53,7 +57,7 @@ class LLMConfig:
 class LLMProviderInterface(ABC):
     """
     Abstract interface for LLM providers.
-    
+
     All providers must implement these methods to ensure
     consistent behavior across different LLM backends.
     """
@@ -76,12 +80,12 @@ class LLMProviderInterface(ABC):
     ) -> LLMResponse:
         """
         Generate a response from the LLM.
-        
+
         Args:
             messages: Conversation history
             tools: Optional tool definitions for function calling
             tool_choice: Tool choice strategy ("auto", "none", or specific tool)
-            
+
         Returns:
             LLMResponse with content, tool_calls, and metadata
         """
@@ -95,7 +99,7 @@ class LLMProviderInterface(ABC):
     ) -> AsyncIterator[str]:
         """
         Generate a streaming response from the LLM.
-        
+
         Yields content chunks as they are generated.
         """
         pass
@@ -104,10 +108,10 @@ class LLMProviderInterface(ABC):
     async def generate_embedding(self, text: str) -> List[float]:
         """
         Generate an embedding vector for the given text.
-        
+
         Args:
             text: Input text to embed
-            
+
         Returns:
             List of floats representing the embedding vector
         """
@@ -127,24 +131,29 @@ class LLMProviderInterface(ABC):
 
 class LLMProviderError(Exception):
     """Base exception for LLM provider errors."""
+
     pass
 
 
 class LLMProviderConnectionError(LLMProviderError):
     """Raised when connection to LLM provider fails."""
+
     pass
 
 
 class LLMProviderAuthenticationError(LLMProviderError):
     """Raised when authentication with LLM provider fails."""
+
     pass
 
 
 class LLMProviderRateLimitError(LLMProviderError):
     """Raised when rate limit is exceeded."""
+
     pass
 
 
 class LLMProviderTimeoutError(LLMProviderError):
     """Raised when LLM request times out."""
+
     pass

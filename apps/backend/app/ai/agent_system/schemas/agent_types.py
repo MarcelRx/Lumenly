@@ -4,7 +4,7 @@ from enum import Enum
 
 class AgentType(str, Enum):
     """Enumeration of available AI coach agents."""
-    
+
     LIFE_STRATEGIST = "life_strategist"
     MENTAL_WELLNESS = "mental_wellness"
     HABIT_COACH = "habit_coach"

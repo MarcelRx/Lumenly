@@ -59,7 +59,5 @@ async def close_redis() -> None:
 def get_redis_client() -> AsyncRedis:
     """Return the initialized Redis client for use in services and endpoints."""
     if redis_client is None:
-        raise RuntimeError(
-            "Redis client is not initialized or the connection failed at startup."
-        )
+        raise RuntimeError("Redis client is not initialized or the connection failed at startup.")
     return redis_client

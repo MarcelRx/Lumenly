@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ENV_FILE_PATH = os.path.join(BASE_DIR, ".env")
 
+
 class Settings(BaseSettings):
     # Application Config
     APP_ENV: Literal["development", "staging", "production"] = "development"
@@ -213,9 +214,9 @@ class Settings(BaseSettings):
         """Validate that embedding configuration is consistent."""
         provider_dimensions = {
             "openai": 1536,  # text-embedding-3-small
-            "cohere": 1024,   # embed-english-v3.0
-            "fastembed": 384, # BAAI/bge-small-en-v1.5
-            "sentence_transformers": 384, # all-MiniLM-L6-v2
+            "cohere": 1024,  # embed-english-v3.0
+            "fastembed": 384,  # BAAI/bge-small-en-v1.5
+            "sentence_transformers": 384,  # all-MiniLM-L6-v2
         }
 
         expected_dimension = provider_dimensions.get(self.EMBEDDING_PROVIDER, 1536)
@@ -234,8 +235,6 @@ class Settings(BaseSettings):
                 f"Invalid DISTANCE_METRIC '{self.DISTANCE_METRIC}'. "
                 f"Must be one of: {', '.join(valid_metrics)}"
             )
-
-
 
     # Rate Limiting Configuration
     RATE_LIMIT_ENABLED: bool = True
@@ -261,7 +260,8 @@ class Settings(BaseSettings):
         env_file=ENV_FILE_PATH,  # <--- Use the explicit path here
         env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
     )
+
 
 settings = Settings()

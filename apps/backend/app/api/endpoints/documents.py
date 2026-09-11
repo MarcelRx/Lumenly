@@ -17,12 +17,14 @@ router = APIRouter()
 
 class DocumentUploadRequest(BaseModel):
     """Schema for document upload request."""
+
     filename: str = Field(..., min_length=1, description="Original filename")
     content: str = Field(..., min_length=1, description="Document text content")
 
 
 class DocumentResponse(BaseModel):
     """Schema for document response."""
+
     id: PydanticObjectId
     user_id: uuid.UUID
     filename: str

@@ -27,54 +27,54 @@ try:
 
     # Define synchronous Celery metrics with separate registry
     celery_tasks_total_sync = Counter(
-        'celery_tasks_total',
-        'Total Celery task executions',
-        ['task', 'status'],
-        registry=celery_worker_registry
+        "celery_tasks_total",
+        "Total Celery task executions",
+        ["task", "status"],
+        registry=celery_worker_registry,
     )
 
     celery_task_failures_total_sync = Counter(
-        'celery_task_failures_total',
-        'Total Celery task failures',
-        ['task', 'failure_type'],
-        registry=celery_worker_registry
+        "celery_task_failures_total",
+        "Total Celery task failures",
+        ["task", "failure_type"],
+        registry=celery_worker_registry,
     )
 
     celery_task_retries_total_sync = Counter(
-        'celery_task_retries_total',
-        'Total Celery task retries',
-        ['task'],
-        registry=celery_worker_registry
+        "celery_task_retries_total",
+        "Total Celery task retries",
+        ["task"],
+        registry=celery_worker_registry,
     )
 
     celery_task_duration_seconds_sync = Histogram(
-        'celery_task_duration_seconds',
-        'Celery task execution duration in seconds',
-        ['task'],
-        buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, float('inf')),
-        registry=celery_worker_registry
+        "celery_task_duration_seconds",
+        "Celery task execution duration in seconds",
+        ["task"],
+        buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, float("inf")),
+        registry=celery_worker_registry,
     )
 
     document_processing_total_sync = Counter(
-        'document_processing_total',
-        'Total document processing attempts',
-        ['status'],
-        registry=celery_worker_registry
+        "document_processing_total",
+        "Total document processing attempts",
+        ["status"],
+        registry=celery_worker_registry,
     )
 
     document_processing_duration_seconds_sync = Histogram(
-        'document_processing_duration_seconds',
-        'Document processing duration in seconds',
-        ['status'],
-        buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, float('inf')),
-        registry=celery_worker_registry
+        "document_processing_duration_seconds",
+        "Document processing duration in seconds",
+        ["status"],
+        buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, float("inf")),
+        registry=celery_worker_registry,
     )
 
     vector_ingestion_failures_total_sync = Counter(
-        'vector_ingestion_failures_total',
-        'Total vector ingestion failures',
-        ['failure_type'],
-        registry=celery_worker_registry
+        "vector_ingestion_failures_total",
+        "Total vector ingestion failures",
+        ["failure_type"],
+        registry=celery_worker_registry,
     )
 
     METRICS_AVAILABLE = True
@@ -120,9 +120,6 @@ class TransientQdrantError(RetryableError):
     """Temporary Qdrant connection or operation failure."""
 
 
-
-
-
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
     """
     Split text into overlapping chunks.
@@ -159,7 +156,7 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     retry_backoff_max=300,
     retry_jitter=True,
     max_retries=3,
-    retry_kwargs={'max_retries': 3},
+    retry_kwargs={"max_retries": 3},
     soft_time_limit=25 * 60,  # 25 minutes soft timeout
     time_limit=30 * 60,  # 30 minutes hard timeout
 )
@@ -201,14 +198,13 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         celery_task_retries_total_sync.labels(task="process_document_task").inc()
 
     logger.info(
-        f"Processing document {document_id} "
-        f"(attempt {retry_count + 1}/{self.max_retries + 1})",
+        f"Processing document {document_id} (attempt {retry_count + 1}/{self.max_retries + 1})",
         extra={
             "document_id": document_id,
             "attempt": retry_count + 1,
             "max_attempts": self.max_retries + 1,
             "task_id": self.request.id,
-        }
+        },
     )
 
     # Initialize sync clients
@@ -226,24 +222,27 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 connectTimeoutMS=5000,
             )
             # Test connection
-            mongo_client.admin.command('ping')
+            mongo_client.admin.command("ping")
         except (ConnectionFailure, ServerSelectionTimeoutError, OperationFailure) as e:
             logger.error(f"MongoDB connection failed: {e}")
             raise TransientDatabaseError(f"MongoDB connection failed: {e}")
 
         # For production, we use 'lumenly' database
-        db_name = 'lumenly'
+        db_name = "lumenly"
         logger.info(f"Using MongoDB database: {db_name}")
 
         # Apply UUID codec options for proper UUID handling
         from bson.binary import UuidRepresentation
         from bson.codec_options import CodecOptions
+
         codec_options = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
         db = mongo_client.get_database(db_name, codec_options=codec_options)
         collection = db["UserDocument"]  # Beanie uses capitalized collection names
 
         # Log collection info for debugging
-        logger.info(f"Collection: {collection.name}, Document count: {collection.count_documents({})}")
+        logger.info(
+            f"Collection: {collection.name}, Document count: {collection.count_documents({})}"
+        )
 
         # Initialize Qdrant sync client
         try:
@@ -262,8 +261,12 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             collections = qdrant_client.get_collections()
             existing_collections = [c.name for c in collections.collections]
             if COLLECTION_NAME not in existing_collections:
-                logger.info(f"Creating collection '{COLLECTION_NAME}' with {settings.VECTOR_DIMENSION} dimensions")
-                distance_metric = getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
+                logger.info(
+                    f"Creating collection '{COLLECTION_NAME}' with {settings.VECTOR_DIMENSION} dimensions"
+                )
+                distance_metric = getattr(
+                    Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE
+                )
                 qdrant_client.create_collection(
                     collection_name=COLLECTION_NAME,
                     vectors_config=VectorParams(
@@ -282,7 +285,12 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
 
             # In development/test, use mock if API keys are not properly configured
             if settings.APP_ENV != "production":
-                if provider_name == "openai" and not settings.OPENAI_API_KEY or provider_name == "cohere" and not settings.COHERE_API_KEY:
+                if (
+                    provider_name == "openai"
+                    and not settings.OPENAI_API_KEY
+                    or provider_name == "cohere"
+                    and not settings.COHERE_API_KEY
+                ):
                     provider_name = "mock"
 
             # Map provider name to API key based on configuration
@@ -326,9 +334,12 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         # Validate user ownership for multi-tenant isolation
         # MongoDB stores UUIDs as Binary, need to convert properly
         from bson.binary import Binary
+
         document_user_id_raw = document.get("user_id")
 
-        logger.info(f"Raw user_id type: {type(document_user_id_raw)}, value: {document_user_id_raw}")
+        logger.info(
+            f"Raw user_id type: {type(document_user_id_raw)}, value: {document_user_id_raw}"
+        )
 
         # Handle different UUID representations in MongoDB
         if isinstance(document_user_id_raw, Binary):
@@ -357,7 +368,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             # Already a string
             document_user_id = str(document_user_id_raw)
 
-        logger.info(f"User ID validation - requested: {user_id}, document owner: {document_user_id}")
+        logger.info(
+            f"User ID validation - requested: {user_id}, document owner: {document_user_id}"
+        )
 
         if document_user_id != user_id:
             logger.error(
@@ -367,9 +380,11 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     "req_user_id": user_id,
                     "doc_user_id": document_user_id,
                     "attempt": retry_count + 1,
-                }
+                },
             )
-            raise InvalidDocumentDataError(f"User {user_id} is not authorized to access document {document_id}")
+            raise InvalidDocumentDataError(
+                f"User {user_id} is not authorized to access document {document_id}"
+            )
 
         # Validate document data
         if not document.get("content"):
@@ -379,7 +394,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     "document_id": document_id,
                     "error": "no_content",
                     "attempt": retry_count + 1,
-                }
+                },
             )
             raise InvalidDocumentDataError(f"Document {document_id} has no content")
 
@@ -387,18 +402,18 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             f"Processing document {document_id} for user {document.get('user_id')}",
             extra={
                 "document_id": document_id,
-                "user_id": str(document.get('user_id')),
-                "doc_filename": document.get('filename'),
-                "content_length": len(document.get('content', '')),
+                "user_id": str(document.get("user_id")),
+                "doc_filename": document.get("filename"),
+                "content_length": len(document.get("content", "")),
                 "attempt": retry_count + 1,
-            }
+            },
         )
 
         # Update status to PROCESSING (idempotent - only if not already PROCESSING)
         try:
             result = collection.update_one(
                 {"_id": ObjectId(document_id), "status": {"$ne": "PROCESSING"}},
-                {"$set": {"status": "PROCESSING"}}
+                {"$set": {"status": "PROCESSING"}},
             )
             logger.debug(f"Status update result: {result.modified_count} document(s) updated")
         except (ConnectionFailure, ServerSelectionTimeoutError, OperationFailure) as e:
@@ -413,7 +428,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 "document_id": document_id,
                 "chunk_count": len(chunks),
                 "attempt": retry_count + 1,
-            }
+            },
         )
 
         # Process each chunk
@@ -457,7 +472,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                         "total_chunks": len(chunks),
                         "vector_id": vector_id,
                         "attempt": retry_count + 1,
-                    }
+                    },
                 )
 
             except Exception as e:
@@ -480,9 +495,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                         "vector_ids": vector_ids,
                         "chunk_count": len(chunks),
                         "status": "PROCESSED",
-                        "error_message": None
+                        "error_message": None,
                     }
-                }
+                },
             )
         except (ConnectionFailure, ServerSelectionTimeoutError, OperationFailure) as e:
             logger.error(f"Failed to update document status to PROCESSED: {e}")
@@ -496,7 +511,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 "vector_count": len(vector_ids),
                 "attempt": retry_count + 1,
                 "status": "PROCESSED",
-            }
+            },
         )
 
         # Track success metrics
@@ -519,7 +534,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 "max_attempts": self.max_retries + 1,
                 "status": "FAILED",
                 "retryable": False,
-            }
+            },
         )
 
         # Try to update document status to FAILED
@@ -529,12 +544,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 collection = db["user_documents"]
                 collection.update_one(
                     {"_id": ObjectId(document_id)},
-                    {
-                        "$set": {
-                            "status": "FAILED",
-                            "error_message": f"{type(e).__name__}: {e!s}"
-                        }
-                    }
+                    {"$set": {"status": "FAILED", "error_message": f"{type(e).__name__}: {e!s}"}},
                 )
         except Exception as save_error:
             logger.error(f"Failed to update document status to FAILED: {save_error}")
@@ -542,7 +552,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         # Track permanent failure metrics
         if METRICS_AVAILABLE:
             duration = time.time() - start_time
-            celery_task_failures_total_sync.labels(task="process_document_task", failure_type=type(e).__name__).inc()
+            celery_task_failures_total_sync.labels(
+                task="process_document_task", failure_type=type(e).__name__
+            ).inc()
             celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
             document_processing_total_sync.labels(status="failed").inc()
             document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
@@ -563,7 +575,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 "max_attempts": self.max_retries + 1,
                 "retryable": True,
                 "will_retry": retry_count < self.max_retries,
-            }
+            },
         )
 
         # Try to update document status to FAILED if this is the last retry
@@ -578,7 +590,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                     "status": "FAILED",
                     "retryable": True,
                     "exhausted_retries": True,
-                }
+                },
             )
             try:
                 if mongo_client:
@@ -589,9 +601,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                         {
                             "$set": {
                                 "status": "FAILED",
-                                "error_message": f"Failed after {self.max_retries + 1} attempts: {e!s}"
+                                "error_message": f"Failed after {self.max_retries + 1} attempts: {e!s}",
                             }
-                        }
+                        },
                     )
             except Exception as save_error:
                 logger.error(f"Failed to update document status to FAILED: {save_error}")
@@ -599,7 +611,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
             # Track exhausted retry metrics
             if METRICS_AVAILABLE:
                 duration = time.time() - start_time
-                celery_task_failures_total_sync.labels(task="process_document_task", failure_type="exhausted_retries").inc()
+                celery_task_failures_total_sync.labels(
+                    task="process_document_task", failure_type="exhausted_retries"
+                ).inc()
                 celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
                 document_processing_total_sync.labels(status="failed").inc()
                 document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
@@ -623,7 +637,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 "status": "FAILED",
                 "retryable": False,
                 "timeout": True,
-            }
+            },
         )
 
         # Try to update document status to FAILED
@@ -633,12 +647,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 collection = db["user_documents"]
                 collection.update_one(
                     {"_id": ObjectId(document_id)},
-                    {
-                        "$set": {
-                            "status": "FAILED",
-                            "error_message": f"Processing timed out: {e!s}"
-                        }
-                    }
+                    {"$set": {"status": "FAILED", "error_message": f"Processing timed out: {e!s}"}},
                 )
         except Exception as save_error:
             logger.error(f"Failed to update document status to FAILED: {save_error}")
@@ -646,7 +655,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         # Track timeout metrics
         if METRICS_AVAILABLE:
             duration = time.time() - start_time
-            celery_task_failures_total_sync.labels(task="process_document_task", failure_type="timeout").inc()
+            celery_task_failures_total_sync.labels(
+                task="process_document_task", failure_type="timeout"
+            ).inc()
             celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
             document_processing_total_sync.labels(status="failed").inc()
             document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
@@ -668,7 +679,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 "status": "FAILED",
                 "retryable": False,
                 "unexpected": True,
-            }
+            },
         )
 
         # Try to update document status to FAILED
@@ -678,12 +689,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
                 collection = db["user_documents"]
                 collection.update_one(
                     {"_id": ObjectId(document_id)},
-                    {
-                        "$set": {
-                            "status": "FAILED",
-                            "error_message": f"Unexpected error: {e!s}"
-                        }
-                    }
+                    {"$set": {"status": "FAILED", "error_message": f"Unexpected error: {e!s}"}},
                 )
         except Exception as save_error:
             logger.error(f"Failed to update document status to FAILED: {save_error}")
@@ -691,7 +697,9 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
         # Track unexpected error metrics
         if METRICS_AVAILABLE:
             duration = time.time() - start_time
-            celery_task_failures_total_sync.labels(task="process_document_task", failure_type="unexpected").inc()
+            celery_task_failures_total_sync.labels(
+                task="process_document_task", failure_type="unexpected"
+            ).inc()
             celery_tasks_total_sync.labels(task="process_document_task", status="failed").inc()
             document_processing_total_sync.labels(status="failed").inc()
             document_processing_duration_seconds_sync.labels(status="failed").observe(duration)
@@ -719,11 +727,7 @@ def process_document_task(self, document_id: str, user_id: str) -> None:
     soft_time_limit=15 * 60,  # 15 minutes soft timeout
     time_limit=20 * 60,  # 20 minutes hard timeout
 )
-def memory_consolidation_task(
-    self,
-    user_id: str,
-    memory_type: str | None = None
-) -> dict:
+def memory_consolidation_task(self, user_id: str, memory_type: str | None = None) -> dict:
     """
     Celery task to consolidate similar memories for a user.
 
@@ -750,7 +754,7 @@ def memory_consolidation_task(
             "memory_type": memory_type,
             "attempt": retry_count + 1,
             "task_id": self.request.id,
-        }
+        },
     )
 
     try:
@@ -758,8 +762,7 @@ def memory_consolidation_task(
         memory_worker = SyncMemoryWorkerService()
         try:
             results = memory_worker.consolidate_user_memories_sync(
-                user_id=user_id,
-                memory_type=memory_type
+                user_id=user_id, memory_type=memory_type
             )
 
             # Format results
@@ -788,20 +791,16 @@ def memory_consolidation_task(
     except SoftTimeLimitExceeded:
         logger.error(
             f"Memory consolidation task timed out for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         raise RetryableError("Task timed out")
 
     except TimeLimitExceeded:
         logger.error(
             f"Memory consolidation task hard timeout for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
-        return {
-            "status": "timeout",
-            "user_id": user_id,
-            "error": "Task exceeded hard time limit"
-        }
+        return {"status": "timeout", "user_id": user_id, "error": "Task exceeded hard time limit"}
 
     except Exception as e:
         logger.error(
@@ -811,7 +810,7 @@ def memory_consolidation_task(
                 "error": str(e),
                 "attempt": retry_count + 1,
                 "task_id": self.request.id,
-            }
+            },
         )
         raise RetryableError(f"Memory consolidation failed: {e}")
 
@@ -826,11 +825,7 @@ def memory_consolidation_task(
     soft_time_limit=10 * 60,  # 10 minutes soft timeout
     time_limit=15 * 60,  # 15 minutes hard timeout
 )
-def memory_cleanup_task(
-    self,
-    user_id: str,
-    policy_name: str = "default"
-) -> dict:
+def memory_cleanup_task(self, user_id: str, policy_name: str = "default") -> dict:
     """
     Celery task to clean up memories using forgetting policy.
 
@@ -856,7 +851,7 @@ def memory_cleanup_task(
             "policy_name": policy_name,
             "attempt": retry_count + 1,
             "task_id": self.request.id,
-        }
+        },
     )
 
     try:
@@ -864,13 +859,10 @@ def memory_cleanup_task(
         memory_worker = SyncMemoryWorkerService()
         try:
             results = memory_worker.cleanup_user_memories_sync(
-                user_id=user_id,
-                policy_name=policy_name
+                user_id=user_id, policy_name=policy_name
             )
 
-            logger.info(
-                f"Memory cleanup completed for user {user_id}: {results}"
-            )
+            logger.info(f"Memory cleanup completed for user {user_id}: {results}")
 
             return {
                 "status": "completed",
@@ -884,20 +876,20 @@ def memory_cleanup_task(
     except SoftTimeLimitExceeded:
         logger.error(
             f"Memory cleanup task timed out for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         raise RetryableError("Task timed out")
 
     except TimeLimitExceeded:
         logger.error(
             f"Memory cleanup task hard timeout for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         return {
             "status": "timeout",
             "user_id": user_id,
             "policy_name": policy_name,
-            "error": "Task exceeded hard time limit"
+            "error": "Task exceeded hard time limit",
         }
 
     except Exception as e:
@@ -909,7 +901,7 @@ def memory_cleanup_task(
                 "error": str(e),
                 "attempt": retry_count + 1,
                 "task_id": self.request.id,
-            }
+            },
         )
         raise RetryableError(f"Memory cleanup failed: {e}")
 
@@ -924,11 +916,7 @@ def memory_cleanup_task(
     soft_time_limit=5 * 60,  # 5 minutes soft timeout
     time_limit=10 * 60,  # 10 minutes hard timeout
 )
-def behavior_aggregation_task(
-    self,
-    user_id: str,
-    time_range_days: int = 30
-) -> dict:
+def behavior_aggregation_task(self, user_id: str, time_range_days: int = 30) -> dict:
     """
     Celery task to aggregate behavioral data for a user.
 
@@ -954,7 +942,7 @@ def behavior_aggregation_task(
             "time_range_days": time_range_days,
             "attempt": retry_count + 1,
             "task_id": self.request.id,
-        }
+        },
     )
 
     try:
@@ -962,8 +950,7 @@ def behavior_aggregation_task(
         memory_worker = SyncMemoryWorkerService()
         try:
             summary = memory_worker.get_behavior_summary_sync(
-                user_id=user_id,
-                time_range_days=time_range_days
+                user_id=user_id, time_range_days=time_range_days
             )
 
             logger.info(
@@ -983,20 +970,20 @@ def behavior_aggregation_task(
     except SoftTimeLimitExceeded:
         logger.error(
             f"Behavior aggregation task timed out for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         raise RetryableError("Task timed out")
 
     except TimeLimitExceeded:
         logger.error(
             f"Behavior aggregation task hard timeout for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         return {
             "status": "timeout",
             "user_id": user_id,
             "time_range_days": time_range_days,
-            "error": "Task exceeded hard time limit"
+            "error": "Task exceeded hard time limit",
         }
 
     except Exception as e:
@@ -1008,7 +995,7 @@ def behavior_aggregation_task(
                 "error": str(e),
                 "attempt": retry_count + 1,
                 "task_id": self.request.id,
-            }
+            },
         )
         raise RetryableError(f"Behavior aggregation failed: {e}")
 
@@ -1023,11 +1010,7 @@ def behavior_aggregation_task(
     soft_time_limit=3 * 60,  # 3 minutes soft timeout
     time_limit=5 * 60,  # 5 minutes hard timeout
 )
-def memory_summarization_task(
-    self,
-    user_id: str,
-    memory_id: str
-) -> dict:
+def memory_summarization_task(self, user_id: str, memory_id: str) -> dict:
     """
     Celery task to summarize a specific memory.
 
@@ -1053,17 +1036,14 @@ def memory_summarization_task(
             "memory_id": memory_id,
             "attempt": retry_count + 1,
             "task_id": self.request.id,
-        }
+        },
     )
 
     try:
         # Use synchronous memory worker service
         memory_worker = SyncMemoryWorkerService()
         try:
-            summary = memory_worker.summarize_memory_sync(
-                memory_id=memory_id,
-                user_id=user_id
-            )
+            summary = memory_worker.summarize_memory_sync(memory_id=memory_id, user_id=user_id)
 
             if not summary:
                 logger.warning(f"Memory {memory_id} not found or summarization failed")
@@ -1071,7 +1051,7 @@ def memory_summarization_task(
                     "status": "failed",
                     "user_id": user_id,
                     "memory_id": memory_id,
-                    "error": "Memory not found or summarization failed"
+                    "error": "Memory not found or summarization failed",
                 }
 
             logger.info(f"Memory summarization completed for memory {memory_id}")
@@ -1088,20 +1068,20 @@ def memory_summarization_task(
     except SoftTimeLimitExceeded:
         logger.error(
             f"Memory summarization task timed out for memory {memory_id}",
-            extra={"user_id": user_id, "memory_id": memory_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "memory_id": memory_id, "task_id": self.request.id},
         )
         raise RetryableError("Task timed out")
 
     except TimeLimitExceeded:
         logger.error(
             f"Memory summarization task hard timeout for memory {memory_id}",
-            extra={"user_id": user_id, "memory_id": memory_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "memory_id": memory_id, "task_id": self.request.id},
         )
         return {
             "status": "timeout",
             "user_id": user_id,
             "memory_id": memory_id,
-            "error": "Task exceeded hard time limit"
+            "error": "Task exceeded hard time limit",
         }
 
     except Exception as e:
@@ -1113,7 +1093,7 @@ def memory_summarization_task(
                 "error": str(e),
                 "attempt": retry_count + 1,
                 "task_id": self.request.id,
-            }
+            },
         )
         raise RetryableError(f"Memory summarization failed: {e}")
 
@@ -1128,11 +1108,7 @@ def memory_summarization_task(
     soft_time_limit=10 * 60,  # 10 minutes soft timeout
     time_limit=15 * 60,  # 15 minutes hard timeout
 )
-def memory_forgetting_task(
-    self,
-    user_id: str,
-    policy_name: str = "default"
-) -> dict:
+def memory_forgetting_task(self, user_id: str, policy_name: str = "default") -> dict:
     """
     Celery task to apply forgetting policy to user memories.
 
@@ -1158,7 +1134,7 @@ def memory_forgetting_task(
             "policy_name": policy_name,
             "attempt": retry_count + 1,
             "task_id": self.request.id,
-        }
+        },
     )
 
     try:
@@ -1166,13 +1142,10 @@ def memory_forgetting_task(
         memory_worker = SyncMemoryWorkerService()
         try:
             results = memory_worker.cleanup_user_memories_sync(
-                user_id=user_id,
-                policy_name=policy_name
+                user_id=user_id, policy_name=policy_name
             )
 
-            logger.info(
-                f"Memory forgetting completed for user {user_id}: {results}"
-            )
+            logger.info(f"Memory forgetting completed for user {user_id}: {results}")
 
             return {
                 "status": "completed",
@@ -1186,20 +1159,20 @@ def memory_forgetting_task(
     except SoftTimeLimitExceeded:
         logger.error(
             f"Memory forgetting task timed out for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         raise RetryableError("Task timed out")
 
     except TimeLimitExceeded:
         logger.error(
             f"Memory forgetting task hard timeout for user {user_id}",
-            extra={"user_id": user_id, "task_id": self.request.id}
+            extra={"user_id": user_id, "task_id": self.request.id},
         )
         return {
             "status": "timeout",
             "user_id": user_id,
             "policy_name": policy_name,
-            "error": "Task exceeded hard time limit"
+            "error": "Task exceeded hard time limit",
         }
 
     except Exception as e:
@@ -1211,6 +1184,6 @@ def memory_forgetting_task(
                 "error": str(e),
                 "attempt": retry_count + 1,
                 "task_id": self.request.id,
-            }
+            },
         )
         raise RetryableError(f"Memory forgetting failed: {e}")

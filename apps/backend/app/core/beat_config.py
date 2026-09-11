@@ -7,6 +7,7 @@ This module configures the Celery Beat scheduler for periodic tasks:
 - Reflection scheduler: Every hour
 - Additional periodic tasks as needed
 """
+
 from celery.schedules import crontab
 
 beat_schedule = {
@@ -18,7 +19,6 @@ beat_schedule = {
             "queue": "coaching_operations",
         },
     },
-
     # Reflection scheduler - runs every hour to check for users due for reflection
     "reflection-scheduler-every-hour": {
         "task": "app.workers.reflection.schedule_reflection_tasks",

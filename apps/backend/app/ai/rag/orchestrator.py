@@ -10,6 +10,7 @@ This module provides a production-quality RAG pipeline that integrates:
 - LLM generation
 - Security validation
 """
+
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RAGContext:
     """Context gathered for RAG generation."""
+
     user_id: str
     query: str
     query_embedding: List[float]
@@ -39,6 +41,7 @@ class RAGContext:
 @dataclass
 class RAGResponse:
     """Response from RAG pipeline."""
+
     content: str
     context_used: Dict[str, Any]
     retrieval_stats: Dict[str, int]
@@ -143,9 +146,9 @@ class RAGOrchestrator:
                 },
                 retrieval_stats={
                     "total_context_items": (
-                        len(context.short_term_memory) +
-                        len(context.long_term_memories) +
-                        len(context.knowledge_chunks)
+                        len(context.short_term_memory)
+                        + len(context.long_term_memories)
+                        + len(context.knowledge_chunks)
                     ),
                 },
                 security_validation=security_result,
@@ -180,7 +183,7 @@ class RAGOrchestrator:
 
         # Sanitize input
         sanitized_query = self.security_validator.sanitize_input(query)
-        validation_results["input_sanitized"] = (sanitized_query != query)
+        validation_results["input_sanitized"] = sanitized_query != query
 
         return validation_results
 
@@ -244,10 +247,12 @@ class RAGOrchestrator:
 
         # Add knowledge context
         if knowledge_chunks:
-            knowledge_text = "\n\n".join([
-                f"- {chunk.get('chunk_text', chunk.get('text', ''))}"
-                for chunk in knowledge_chunks[:self.max_context_chunks]
-            ])
+            knowledge_text = "\n\n".join(
+                [
+                    f"- {chunk.get('chunk_text', chunk.get('text', ''))}"
+                    for chunk in knowledge_chunks[: self.max_context_chunks]
+                ]
+            )
             base_prompt += f"\n\nRelevant knowledge:\n{knowledge_text}"
 
         return base_prompt
@@ -258,16 +263,13 @@ class RAGOrchestrator:
         context: RAGContext,
     ) -> List[LLMMessage]:
         """Build message list for LLM generation."""
-        messages = [
-            LLMMessage(role="system", content=context.system_prompt)
-        ]
+        messages = [LLMMessage(role="system", content=context.system_prompt)]
 
         # Add conversation history (last 10 turns)
         for msg in context.short_term_memory[-10:]:
-            messages.append(LLMMessage(
-                role=msg.get("role", "user"),
-                content=msg.get("content", "")
-            ))
+            messages.append(
+                LLMMessage(role=msg.get("role", "user"), content=msg.get("content", ""))
+            )
 
         # Add current query
         messages.append(LLMMessage(role="user", content=query))

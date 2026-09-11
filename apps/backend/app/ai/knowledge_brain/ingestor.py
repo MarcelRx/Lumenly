@@ -11,7 +11,9 @@ from .chunker import DocumentChunker
 class KnowledgeIngestor:
     """Handles ingestion of documents into the knowledge base."""
 
-    def __init__(self, qdrant_client: AsyncQdrantClient, embed_func: Callable[[str], Awaitable[list[float]]]):
+    def __init__(
+        self, qdrant_client: AsyncQdrantClient, embed_func: Callable[[str], Awaitable[list[float]]]
+    ):
         """
         Initialize the KnowledgeIngestor.
 
@@ -39,15 +41,12 @@ class KnowledgeIngestor:
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(
                     size=self.vector_size,
-                    distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
-                )
+                    distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE),
+                ),
             )
 
     async def process_and_store_document(
-        self,
-        user_id: str,
-        document_title: str,
-        text: str
+        self, user_id: str, document_title: str, text: str
     ) -> None:
         """
         Process a document and store its chunks in the knowledge base.
@@ -78,15 +77,12 @@ class KnowledgeIngestor:
                     "user_id": user_id,
                     "document_title": document_title,
                     "chunk_text": chunk,
-                    "chunk_index": i
-                }
+                    "chunk_index": i,
+                },
             )
             points.append(point)
 
         # Upsert all points
         if points:
             # FIX: Added 'await' here
-            await self.qdrant_client.upsert(
-                collection_name=self.collection_name,
-                points=points
-            )
+            await self.qdrant_client.upsert(collection_name=self.collection_name, points=points)

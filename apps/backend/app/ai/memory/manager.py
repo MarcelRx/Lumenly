@@ -10,6 +10,7 @@ This module implements the main Memory Manager that orchestrates all memory comp
 - Summarization
 - Behavior tracking
 """
+
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -91,19 +92,9 @@ class MemoryManager(IMemoryManager):
         self.storage = storage or MultiBackendMemoryStorage()
         self.ranker = ranker or MemoryRanker()
         self.summarizer = summarizer or MemorySummarizer(llm_provider)
-        self.consolidator = consolidator or MemoryConsolidator(
-            self.storage,
-            self.summarizer
-        )
-        self.forgetting = forgetting or MemoryForgetting(
-            self.storage,
-            self.consolidator
-        )
-        self.retriever = retriever or MemoryRetriever(
-            self.storage,
-            self.ranker,
-            embedding_model
-        )
+        self.consolidator = consolidator or MemoryConsolidator(self.storage, self.summarizer)
+        self.forgetting = forgetting or MemoryForgetting(self.storage, self.consolidator)
+        self.retriever = retriever or MemoryRetriever(self.storage, self.ranker, embedding_model)
         self.behavior_tracker = behavior_tracker or BehaviorTracker(self.storage)
         self.validator = validator or default_validator
 
@@ -115,7 +106,7 @@ class MemoryManager(IMemoryManager):
         memory_type: MemoryType,
         content: str,
         metadata: Optional[MemoryMetadata] = None,
-        embedding_vector: Optional[List[float]] = None
+        embedding_vector: Optional[List[float]] = None,
     ) -> str:
         """
         Store a memory with automatic type handling and validation.
@@ -170,10 +161,7 @@ class MemoryManager(IMemoryManager):
             # Track behavior if applicable
             await self._track_storage_behavior(memory)
 
-            logger.info(
-                f"Stored memory {memory_id} of type {memory_type.value} "
-                f"for user {user_id}"
-            )
+            logger.info(f"Stored memory {memory_id} of type {memory_type.value} for user {user_id}")
             return memory_id
 
         except Exception as e:
@@ -181,10 +169,7 @@ class MemoryManager(IMemoryManager):
             raise
 
     async def retrieve_memories(
-        self,
-        user_id: str,
-        query: str,
-        config: Optional[MemoryRetrievalConfig] = None
+        self, user_id: str, query: str, config: Optional[MemoryRetrievalConfig] = None
     ) -> List[MemorySearchResult]:
         """
         Retrieve memories based on query with ranking and validation.
@@ -213,12 +198,11 @@ class MemoryManager(IMemoryManager):
                     updates={
                         "access_count": result.memory.metadata.access_count + 1,
                         "last_accessed": datetime.now(timezone.utc).isoformat(),
-                    }
+                    },
                 )
 
             logger.info(
-                f"Retrieved {len(results)} memories for user {user_id} "
-                f"with query: {query[:50]}..."
+                f"Retrieved {len(results)} memories for user {user_id} with query: {query[:50]}..."
             )
             return results
 
@@ -227,9 +211,7 @@ class MemoryManager(IMemoryManager):
             return []
 
     async def consolidate_user_memories(
-        self,
-        user_id: str,
-        memory_type: Optional[MemoryType] = None
+        self, user_id: str, memory_type: Optional[MemoryType] = None
     ) -> List[MemoryConsolidationResult]:
         """
         Consolidate memories for a user using Celery task.
@@ -245,8 +227,7 @@ class MemoryManager(IMemoryManager):
 
             # Trigger Celery task
             task_result = memory_consolidation_task.delay(
-                user_id=user_id,
-                memory_type=memory_type_str
+                user_id=user_id, memory_type=memory_type_str
             )
 
             logger.info(
@@ -255,21 +236,21 @@ class MemoryManager(IMemoryManager):
             )
 
             # Return task info instead of waiting for completion
-            return [{
-                "task_id": task_result.id,
-                "status": "scheduled",
-                "user_id": user_id,
-                "memory_type": memory_type_str
-            }]
+            return [
+                {
+                    "task_id": task_result.id,
+                    "status": "scheduled",
+                    "user_id": user_id,
+                    "memory_type": memory_type_str,
+                }
+            ]
 
         except Exception as e:
             logger.error(f"Failed to trigger memory consolidation for user {user_id}: {e}")
             return []
 
     async def cleanup_user_memories(
-        self,
-        user_id: str,
-        policy_name: str = "default"
+        self, user_id: str, policy_name: str = "default"
     ) -> Dict[str, int]:
         """
         Clean up memories using forgetting policy via Celery task.
@@ -282,10 +263,7 @@ class MemoryManager(IMemoryManager):
             from app.workers.tasks import memory_forgetting_task
 
             # Trigger Celery task
-            task_result = memory_forgetting_task.delay(
-                user_id=user_id,
-                policy_name=policy_name
-            )
+            task_result = memory_forgetting_task.delay(user_id=user_id, policy_name=policy_name)
 
             logger.info(
                 f"Triggered memory forgetting Celery task {task_result.id} "
@@ -297,17 +275,14 @@ class MemoryManager(IMemoryManager):
                 "task_id": task_result.id,
                 "status": "scheduled",
                 "user_id": user_id,
-                "policy_name": policy_name
+                "policy_name": policy_name,
             }
 
         except Exception as e:
             logger.error(f"Failed to trigger memory cleanup for user {user_id}: {e}")
             return {}
 
-    async def get_memory_statistics(
-        self,
-        user_id: str
-    ) -> Dict[str, Any]:
+    async def get_memory_statistics(self, user_id: str) -> Dict[str, Any]:
         """
         Get statistics about user's memories.
 
@@ -326,16 +301,12 @@ class MemoryManager(IMemoryManager):
             counts_by_type = {}
             for mem_type in MemoryType:
                 type_count = await self.storage.count_user_memories(
-                    user_id=user_id,
-                    memory_type=mem_type
+                    user_id=user_id, memory_type=mem_type
                 )
                 counts_by_type[mem_type.value] = type_count
 
             # Get recent memories
-            recent_memories = await self.retriever.retrieve_recent(
-                user_id=user_id,
-                limit=10
-            )
+            recent_memories = await self.retriever.retrieve_recent(user_id=user_id, limit=10)
 
             # Calculate basic statistics
             stats = {
@@ -353,11 +324,7 @@ class MemoryManager(IMemoryManager):
             logger.error(f"Failed to get memory statistics for user {user_id}: {e}")
             return {}
 
-    async def get_memory_by_id(
-        self,
-        memory_id: str,
-        user_id: str
-    ) -> Optional[MemoryRecord]:
+    async def get_memory_by_id(self, memory_id: str, user_id: str) -> Optional[MemoryRecord]:
         """
         Retrieve a specific memory by ID.
 
@@ -365,11 +332,7 @@ class MemoryManager(IMemoryManager):
         """
         return await self.retriever.retrieve_by_id(memory_id, user_id)
 
-    async def delete_memory(
-        self,
-        memory_id: str,
-        user_id: str
-    ) -> bool:
+    async def delete_memory(self, memory_id: str, user_id: str) -> bool:
         """
         Delete a specific memory by ID.
 
@@ -392,7 +355,7 @@ class MemoryManager(IMemoryManager):
         user_id: str,
         memory_type: Optional[MemoryType] = None,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[MemoryRecord]:
         """
         List memories for a user with optional filtering.
@@ -401,10 +364,7 @@ class MemoryManager(IMemoryManager):
         """
         try:
             memories = await self.storage.list_user_memories(
-                user_id=user_id,
-                memory_type=memory_type,
-                limit=limit,
-                offset=offset
+                user_id=user_id, memory_type=memory_type, limit=limit, offset=offset
             )
 
             logger.debug(
@@ -417,12 +377,7 @@ class MemoryManager(IMemoryManager):
             logger.error(f"Failed to list memories for user {user_id}: {e}")
             return []
 
-    async def update_memory(
-        self,
-        memory_id: str,
-        user_id: str,
-        updates: Dict[str, Any]
-    ) -> bool:
+    async def update_memory(self, memory_id: str, user_id: str, updates: Dict[str, Any]) -> bool:
         """
         Update a memory record.
 
@@ -440,11 +395,7 @@ class MemoryManager(IMemoryManager):
             logger.error(f"Failed to update memory {memory_id}: {e}")
             return False
 
-    async def summarize_memory(
-        self,
-        memory_id: str,
-        user_id: str
-    ) -> Optional[str]:
+    async def summarize_memory(self, memory_id: str, user_id: str) -> Optional[str]:
         """
         Generate a summary of a specific memory using Celery task.
 
@@ -455,10 +406,7 @@ class MemoryManager(IMemoryManager):
             from app.workers.tasks import memory_summarization_task
 
             # Trigger Celery task
-            task_result = memory_summarization_task.delay(
-                user_id=user_id,
-                memory_id=memory_id
-            )
+            task_result = memory_summarization_task.delay(user_id=user_id, memory_id=memory_id)
 
             logger.info(
                 f"Triggered memory summarization Celery task {task_result.id} "
@@ -470,7 +418,7 @@ class MemoryManager(IMemoryManager):
                 "task_id": task_result.id,
                 "status": "scheduled",
                 "user_id": user_id,
-                "memory_id": memory_id
+                "memory_id": memory_id,
             }
 
         except Exception as e:
@@ -478,9 +426,7 @@ class MemoryManager(IMemoryManager):
             return None
 
     async def get_behavior_summary(
-        self,
-        user_id: str,
-        time_range: Optional[tuple[datetime, datetime]] = None
+        self, user_id: str, time_range: Optional[tuple[datetime, datetime]] = None
     ) -> Dict[str, Any]:
         """
         Get behavioral summary for a user using Celery task.
@@ -499,8 +445,7 @@ class MemoryManager(IMemoryManager):
 
             # Trigger Celery task
             task_result = behavior_aggregation_task.delay(
-                user_id=user_id,
-                time_range_days=time_range_days
+                user_id=user_id, time_range_days=time_range_days
             )
 
             logger.info(
@@ -513,17 +458,14 @@ class MemoryManager(IMemoryManager):
                 "task_id": task_result.id,
                 "status": "scheduled",
                 "user_id": user_id,
-                "time_range_days": time_range_days
+                "time_range_days": time_range_days,
             }
 
         except Exception as e:
             logger.error(f"Failed to trigger behavior aggregation for user {user_id}: {e}")
             return {}
 
-    async def _track_storage_behavior(
-        self,
-        memory: MemoryRecord
-    ) -> None:
+    async def _track_storage_behavior(self, memory: MemoryRecord) -> None:
         """
         Track behavior when storing a memory.
 
@@ -533,18 +475,15 @@ class MemoryManager(IMemoryManager):
             # Track based on memory type
             if memory.memory_type == MemoryType.CONVERSATION:
                 await self.behavior_tracker.track_conversation_frequency(
-                    user_id=memory.user_id,
-                    timestamp=memory.created_at
+                    user_id=memory.user_id, timestamp=memory.created_at
                 )
             elif memory.memory_type == MemoryType.JOURNAL:
                 # Extract mood score from metadata if available
                 mood_score = None
-                if hasattr(memory.metadata, 'mood_score'):
+                if hasattr(memory.metadata, "mood_score"):
                     mood_score = memory.metadata.mood_score
                 await self.behavior_tracker.track_journal_statistics(
-                    user_id=memory.user_id,
-                    entry_id=memory.id,
-                    mood_score=mood_score
+                    user_id=memory.user_id, entry_id=memory.id, mood_score=mood_score
                 )
 
         except Exception as e:

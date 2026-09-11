@@ -7,6 +7,7 @@ This module defines the schema and metadata structure for different memory types
 - Medium-term: Recent goals, habits, journal entries (MongoDB + Qdrant)
 - Long-term: User preferences, personality patterns, life history (Qdrant)
 """
+
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ from app.core.config import settings
 
 class MemoryType(str, Enum):
     """Types of memory stored in the system."""
+
     CONVERSATION = "conversation"  # Short-term chat history
     JOURNAL = "journal"  # Journal entries and reflections
     GOAL = "goal"  # User goals and progress
@@ -30,6 +32,7 @@ class MemoryType(str, Enum):
 
 class MemoryImportance(str, Enum):
     """Importance level for long-term memory retention."""
+
     CRITICAL = "critical"  # Never forget
     HIGH = "high"  # Long-term retention
     MEDIUM = "medium"  # Medium-term retention
@@ -40,6 +43,7 @@ class MemoryImportance(str, Enum):
 @dataclass
 class MemoryMetadata:
     """Standardized metadata for all memory entries."""
+
     user_id: str
     memory_type: MemoryType
     importance: MemoryImportance = MemoryImportance.MEDIUM
@@ -58,6 +62,7 @@ class MemoryMetadata:
 @dataclass
 class ConversationMemory:
     """Short-term conversation memory (stored in Redis)."""
+
     user_id: str
     role: str  # "user" or "assistant"
     content: str
@@ -76,6 +81,7 @@ class ConversationMemory:
 @dataclass
 class JournalMemory:
     """Journal entry memory (stored in MongoDB + Qdrant)."""
+
     user_id: str
     content: str
     mood_score: Optional[int] = None  # 1-10
@@ -108,6 +114,7 @@ class JournalMemory:
 @dataclass
 class GoalMemory:
     """Goal tracking memory (stored in MongoDB + Qdrant)."""
+
     user_id: str
     title: str
     description: str
@@ -148,6 +155,7 @@ class GoalMemory:
 @dataclass
 class HabitMemory:
     """Habit tracking memory (stored in MongoDB + Qdrant)."""
+
     user_id: str
     title: str
     frequency: str  # "daily", "weekly", etc.
@@ -188,6 +196,7 @@ class HabitMemory:
 @dataclass
 class PreferenceMemory:
     """User preference memory (stored in Qdrant for vector search)."""
+
     user_id: str
     preference_key: str
     preference_value: str
@@ -212,6 +221,7 @@ class PreferenceMemory:
 @dataclass
 class BehavioralMemory:
     """Behavioral pattern memory (stored in Qdrant)."""
+
     user_id: str
     pattern_type: str  # "time_of_day", "day_of_week", "response_pattern", etc.
     pattern_description: str
@@ -238,6 +248,7 @@ class BehavioralMemory:
 @dataclass
 class KnowledgeMemory:
     """Document knowledge memory (stored in Qdrant)."""
+
     user_id: str
     content: str
     document_id: str
@@ -262,6 +273,7 @@ class KnowledgeMemory:
 @dataclass
 class EpisodicMemory:
     """Specific life event memory (stored in Qdrant)."""
+
     user_id: str
     event_description: str
     event_date: Optional[datetime] = None
@@ -328,6 +340,7 @@ def get_qdrant_collections_config():
             ],
         },
     }
+
 
 # Backward compatibility - expose as function result
 QDRANT_COLLECTIONS = get_qdrant_collections_config()

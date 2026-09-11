@@ -4,6 +4,7 @@ Embedding Provider Implementations.
 
 Concrete implementations of EmbeddingProviderInterface for various providers.
 """
+
 import logging
 from typing import List
 
@@ -24,6 +25,7 @@ class OpenAIEmbeddingProvider(EmbeddingProviderInterface):
     async def initialize(self) -> None:
         try:
             from openai import AsyncOpenAI
+
             self._client = AsyncOpenAI(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
@@ -98,6 +100,7 @@ class CohereEmbeddingProvider(EmbeddingProviderInterface):
     async def initialize(self) -> None:
         try:
             import cohere
+
             self._client = cohere.AsyncClient(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
@@ -176,6 +179,7 @@ class FastEmbedEmbeddingProvider(EmbeddingProviderInterface):
     async def initialize(self) -> None:
         try:
             from fastembed import TextEmbedding
+
             self._client = TextEmbedding(model_name=self.config.model)
             logger.info(f"FastEmbed provider initialized with model: {self.config.model}")
         except ImportError:
@@ -187,10 +191,10 @@ class FastEmbedEmbeddingProvider(EmbeddingProviderInterface):
         try:
             # FastEmbed is synchronous, run in thread pool
             import asyncio
+
             loop = asyncio.get_event_loop()
             embedding = await loop.run_in_executor(
-                None,
-                lambda: list(self._client.embed([text]))[0]
+                None, lambda: list(self._client.embed([text]))[0]
             )
             return embedding
         except Exception as e:
@@ -199,10 +203,10 @@ class FastEmbedEmbeddingProvider(EmbeddingProviderInterface):
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             embeddings = await loop.run_in_executor(
-                None,
-                lambda: list(self._client.embed(texts, batch_size=self.config.batch_size))
+                None, lambda: list(self._client.embed(texts, batch_size=self.config.batch_size))
             )
             return embeddings
         except Exception as e:
@@ -225,11 +229,9 @@ class FastEmbedEmbeddingProvider(EmbeddingProviderInterface):
     async def health_check(self) -> bool:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: list(self._client.embed(["test"]))
-            )
+            await loop.run_in_executor(None, lambda: list(self._client.embed(["test"])))
             return True
         except Exception as e:
             logger.error(f"FastEmbed health check failed: {e}")
@@ -248,24 +250,28 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProviderInterface):
             import asyncio
 
             from sentence_transformers import SentenceTransformer
+
             loop = asyncio.get_event_loop()
             self._client = await loop.run_in_executor(
-                None,
-                lambda: SentenceTransformer(self.config.model)
+                None, lambda: SentenceTransformer(self.config.model)
             )
-            logger.info(f"SentenceTransformers provider initialized with model: {self.config.model}")
+            logger.info(
+                f"SentenceTransformers provider initialized with model: {self.config.model}"
+            )
         except ImportError:
             raise EmbeddingProviderError("sentence-transformers package not installed")
         except Exception as e:
-            raise EmbeddingProviderConnectionError(f"Failed to initialize SentenceTransformers: {e}")
+            raise EmbeddingProviderConnectionError(
+                f"Failed to initialize SentenceTransformers: {e}"
+            )
 
     async def embed(self, text: str) -> List[float]:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             embedding = await loop.run_in_executor(
-                None,
-                lambda: self._client.encode(text, convert_to_numpy=False)
+                None, lambda: self._client.encode(text, convert_to_numpy=False)
             )
             return embedding.tolist()
         except Exception as e:
@@ -274,10 +280,10 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProviderInterface):
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             embeddings = await loop.run_in_executor(
-                None,
-                lambda: self._client.encode(texts, convert_to_numpy=False)
+                None, lambda: self._client.encode(texts, convert_to_numpy=False)
             )
             return [emb.tolist() for emb in embeddings]
         except Exception as e:
@@ -299,11 +305,9 @@ class SentenceTransformersEmbeddingProvider(EmbeddingProviderInterface):
     async def health_check(self) -> bool:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: self._client.encode("test")
-            )
+            await loop.run_in_executor(None, lambda: self._client.encode("test"))
             return True
         except Exception as e:
             logger.error(f"SentenceTransformers health check failed: {e}")

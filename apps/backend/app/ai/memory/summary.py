@@ -8,6 +8,7 @@ This module implements memory summarization using the LLM interface:
 - Extract key insights from memory groups
 - Provider-independent operation
 """
+
 import logging
 from typing import List, Optional
 
@@ -46,9 +47,7 @@ class MemorySummarizer(IMemorySummarizer):
         self.llm_provider = llm_provider
         self.max_summary_length = max_summary_length
 
-        logger.info(
-            f"Initialized MemorySummarizer with max_summary_length={max_summary_length}"
-        )
+        logger.info(f"Initialized MemorySummarizer with max_summary_length={max_summary_length}")
 
     async def summarize_memory(self, memory: MemoryRecord) -> str:
         """
@@ -70,7 +69,10 @@ class MemorySummarizer(IMemorySummarizer):
             prompt = self._build_summary_prompt(memory.content, single=True)
 
             messages = [
-                LLMMessage(role="system", content="You are a helpful assistant that summarizes text concisely."),
+                LLMMessage(
+                    role="system",
+                    content="You are a helpful assistant that summarizes text concisely.",
+                ),
                 LLMMessage(role="user", content=prompt),
             ]
 
@@ -93,10 +95,7 @@ class MemorySummarizer(IMemorySummarizer):
             logger.error(f"Failed to summarize memory {memory.id}: {e}")
             return self._simple_truncate(memory.content)
 
-    async def summarize_memories_batch(
-        self,
-        memories: List[MemoryRecord]
-    ) -> List[str]:
+    async def summarize_memories_batch(self, memories: List[MemoryRecord]) -> List[str]:
         """
         Generate summaries for multiple memories.
 
@@ -115,10 +114,7 @@ class MemorySummarizer(IMemorySummarizer):
         logger.debug(f"Generated {len(summaries)} summaries in batch")
         return summaries
 
-    async def extract_key_insights(
-        self,
-        memories: List[MemoryRecord]
-    ) -> List[str]:
+    async def extract_key_insights(self, memories: List[MemoryRecord]) -> List[str]:
         """
         Extract key insights from a set of memories.
 
@@ -137,10 +133,9 @@ class MemorySummarizer(IMemorySummarizer):
                 return self._simple_insight_extraction(memories)
 
             # Combine memory contents
-            combined_content = "\n\n".join([
-                f"[{mem.memory_type.value}] {mem.content}"
-                for mem in memories
-            ])
+            combined_content = "\n\n".join(
+                [f"[{mem.memory_type.value}] {mem.content}" for mem in memories]
+            )
 
             # Build insight extraction prompt
             prompt = self._build_insight_prompt(combined_content, len(memories))
@@ -148,7 +143,7 @@ class MemorySummarizer(IMemorySummarizer):
             messages = [
                 LLMMessage(
                     role="system",
-                    content="You are a helpful assistant that extracts key insights from text."
+                    content="You are a helpful assistant that extracts key insights from text.",
                 ),
                 LLMMessage(role="user", content=prompt),
             ]
@@ -181,13 +176,13 @@ class MemorySummarizer(IMemorySummarizer):
             return content
 
         # Find the last sentence boundary within limit
-        truncated = content[:self.max_summary_length]
+        truncated = content[: self.max_summary_length]
 
         # Try to end at a sentence boundary
         for separator in [". ", "! ", "? ", "\n"]:
             last_sep = truncated.rfind(separator)
             if last_sep > self.max_summary_length * 0.7:  # At least 70% of limit
-                truncated = truncated[:last_sep + 1]
+                truncated = truncated[: last_sep + 1]
                 break
 
         return truncated + "..."
@@ -215,13 +210,10 @@ class MemorySummarizer(IMemorySummarizer):
 
         # Extract high-importance memories
         high_importance = [
-            m for m in memories
-            if m.metadata.importance.value in ["critical", "high"]
+            m for m in memories if m.metadata.importance.value in ["critical", "high"]
         ]
         if high_importance:
-            insights.append(
-                f"Found {len(high_importance)} high-importance memories"
-            )
+            insights.append(f"Found {len(high_importance)} high-importance memories")
 
         # Extract content themes (simple keyword-based)
         all_content = " ".join(m.content.lower() for m in memories)
@@ -277,7 +269,7 @@ class MemorySummarizer(IMemorySummarizer):
             cleaned = line.strip()
             for prefix in ["-", "*", "•", "1.", "2.", "3.", "4.", "5."]:
                 if cleaned.startswith(prefix):
-                    cleaned = cleaned[len(prefix):].strip()
+                    cleaned = cleaned[len(prefix) :].strip()
                     break
 
             if cleaned and len(cleaned) > 10:  # Filter out very short lines
@@ -286,9 +278,7 @@ class MemorySummarizer(IMemorySummarizer):
         return insights[:5]  # Limit to 5 insights
 
     async def generate_consolidated_summary(
-        self,
-        memories: List[MemoryRecord],
-        max_length: int = 1000
+        self, memories: List[MemoryRecord], max_length: int = 1000
     ) -> str:
         """
         Generate a consolidated summary from multiple memories.
@@ -325,7 +315,7 @@ class MemorySummarizer(IMemorySummarizer):
             messages = [
                 LLMMessage(
                     role="system",
-                    content="You are a helpful assistant that creates consolidated summaries."
+                    content="You are a helpful assistant that creates consolidated summaries.",
                 ),
                 LLMMessage(role="user", content=prompt),
             ]

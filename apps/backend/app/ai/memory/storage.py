@@ -7,6 +7,7 @@ This module provides a unified storage interface that works with:
 - MongoDB for structured medium-term memory (journals, goals, habits)
 - Qdrant for long-term vector-based memory retrieval
 """
+
 import json
 import logging
 from datetime import datetime
@@ -50,7 +51,9 @@ class MultiBackendMemoryStorage(IMemoryStorage):
         self._redis_client = None
         self._mongo_client = None
         self._qdrant_client = None
-        self._vector_size = vector_size or settings.VECTOR_DIMENSION  # Use configured vector dimension
+        self._vector_size = (
+            vector_size or settings.VECTOR_DIMENSION
+        )  # Use configured vector dimension
 
     def _get_redis(self):
         """Lazy load Redis client."""
@@ -100,6 +103,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
 
             # Check for duplicate content using hash
             import hashlib
+
             content_hash = hashlib.sha256(memory.content.encode()).hexdigest()
             # Store hash in metadata for deduplication
             memory.metadata.tags.append(f"content_hash:{content_hash}")
@@ -128,7 +132,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             "metadata": {
                 "source": memory.metadata.source,
                 "importance": memory.metadata.importance.value,
-            }
+            },
         }
 
         await redis.set(key, json.dumps(conversation_data), ex=86400)  # 24h TTL
@@ -168,7 +172,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                     "source": memory.metadata.source,
                     "tags": memory.metadata.tags,
                     "created_at": memory.created_at.isoformat(),
-                }
+                },
             }
 
             # Track what operations succeeded for compensation
@@ -197,7 +201,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                     try:
                         await qdrant.delete(
                             collection_name=f"medium_term_{collection_name}",
-                            points_selector=[memory.id]
+                            points_selector=[memory.id],
                         )
                         logger.info(f"Rolled back Qdrant insertion for memory {memory.id}")
                     except Exception as rollback_error:
@@ -236,8 +240,10 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                     collection_name=collection_name,
                     vectors_config=VectorParams(
                         size=self._vector_size,
-                        distance=getattr(Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE)
-                    )
+                        distance=getattr(
+                            Distance, settings.DISTANCE_METRIC.upper(), Distance.COSINE
+                        ),
+                    ),
                 )
                 logger.info(f"Created Qdrant collection: {collection_name}")
         except Exception as e:
@@ -260,13 +266,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
         # Store in Qdrant
         await qdrant.upsert(
             collection_name=collection_name,
-            points=[
-                PointStruct(
-                    id=memory.id,
-                    vector=memory.embedding_vector,
-                    payload=payload
-                )
-            ]
+            points=[PointStruct(id=memory.id, vector=memory.embedding_vector, payload=payload)],
         )
         logger.debug(f"Stored memory {memory.id} in Qdrant collection {collection_name}")
 
@@ -286,24 +286,25 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             db = mongo.get_default_database()
 
             for collection_name in ["journal_entries", "goals", "habits"]:
-                doc = await db[collection_name].find_one({
-                    "memory_id": memory_id,
-                    "user_id": user_id
-                })
+                doc = await db[collection_name].find_one(
+                    {"memory_id": memory_id, "user_id": user_id}
+                )
                 if doc:
                     return self._parse_mongo_memory(doc)
 
             # Try Qdrant last (vector memory)
             qdrant = self._get_qdrant()
-            for collection_name in ["medium_term_journal_entries", "medium_term_goals",
-                                   "medium_term_habits", "long_term_preference",
-                                   "long_term_behavioral", "long_term_knowledge",
-                                   "long_term_episodic"]:
+            for collection_name in [
+                "medium_term_journal_entries",
+                "medium_term_goals",
+                "medium_term_habits",
+                "long_term_preference",
+                "long_term_behavioral",
+                "long_term_knowledge",
+                "long_term_episodic",
+            ]:
                 try:
-                    result = await qdrant.retrieve(
-                        collection_name=collection_name,
-                        ids=[memory_id]
-                    )
+                    result = await qdrant.retrieve(collection_name=collection_name, ids=[memory_id])
                     if result and result[0].payload.get("user_id") == user_id:
                         return self._parse_qdrant_memory(result[0])
                 except Exception:
@@ -331,7 +332,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             memory_type=MemoryType.CONVERSATION,
             content=data["content"],
             metadata=metadata,
-            created_at=datetime.fromisoformat(data["timestamp"])
+            created_at=datetime.fromisoformat(data["timestamp"]),
         )
 
     def _parse_mongo_memory(self, doc: Dict[str, Any]) -> MemoryRecord:
@@ -351,7 +352,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             memory_type=memory_type,
             content=doc["content"],
             metadata=metadata,
-            created_at=datetime.fromisoformat(doc["metadata"]["created_at"])
+            created_at=datetime.fromisoformat(doc["metadata"]["created_at"]),
         )
 
     def _parse_qdrant_memory(self, point) -> MemoryRecord:
@@ -375,7 +376,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             content=payload["content"],
             metadata=metadata,
             embedding_vector=point.vector,
-            created_at=datetime.fromisoformat(payload["created_at"])
+            created_at=datetime.fromisoformat(payload["created_at"]),
         )
 
     async def update(self, memory_id: str, user_id: str, updates: Dict[str, Any]) -> bool:
@@ -398,18 +399,22 @@ class MultiBackendMemoryStorage(IMemoryStorage):
 
             for collection_name in ["journal_entries", "goals", "habits"]:
                 result = await db[collection_name].update_one(
-                    {"memory_id": memory_id, "user_id": user_id},
-                    {"$set": updates}
+                    {"memory_id": memory_id, "user_id": user_id}, {"$set": updates}
                 )
                 if result.modified_count > 0:
                     return True
 
             # Try Qdrant
             qdrant = self._get_qdrant()
-            for collection_name in ["medium_term_journal_entries", "medium_term_goals",
-                                   "medium_term_habits", "long_term_preference",
-                                   "long_term_behavioral", "long_term_knowledge",
-                                   "long_term_episodic"]:
+            for collection_name in [
+                "medium_term_journal_entries",
+                "medium_term_goals",
+                "medium_term_habits",
+                "long_term_preference",
+                "long_term_behavioral",
+                "long_term_knowledge",
+                "long_term_episodic",
+            ]:
                 try:
                     # Qdrant doesn't support partial updates, need to retrieve and replace
                     result = await qdrant.retrieve(collection_name=collection_name, ids=[memory_id])
@@ -418,11 +423,9 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                         payload.update(updates)
                         await qdrant.upsert(
                             collection_name=collection_name,
-                            points=[PointStruct(
-                                id=memory_id,
-                                vector=result[0].vector,
-                                payload=payload
-                            )]
+                            points=[
+                                PointStruct(id=memory_id, vector=result[0].vector, payload=payload)
+                            ],
                         )
                         return True
                 except Exception:
@@ -449,24 +452,30 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             db = mongo.get_default_database()
 
             for collection_name in ["journal_entries", "goals", "habits"]:
-                result = await db[collection_name].delete_one({
-                    "memory_id": memory_id,
-                    "user_id": user_id
-                })
+                result = await db[collection_name].delete_one(
+                    {"memory_id": memory_id, "user_id": user_id}
+                )
                 if result.deleted_count > 0:
                     return True
 
             # Try Qdrant
             qdrant = self._get_qdrant()
-            for collection_name in ["medium_term_journal_entries", "medium_term_goals",
-                                   "medium_term_habits", "long_term_preference",
-                                   "long_term_behavioral", "long_term_knowledge",
-                                   "long_term_episodic"]:
+            for collection_name in [
+                "medium_term_journal_entries",
+                "medium_term_goals",
+                "medium_term_habits",
+                "long_term_preference",
+                "long_term_behavioral",
+                "long_term_knowledge",
+                "long_term_episodic",
+            ]:
                 try:
                     # Verify user ownership before deletion
                     result = await qdrant.retrieve(collection_name=collection_name, ids=[memory_id])
                     if result and result[0].payload.get("user_id") == user_id:
-                        await qdrant.delete(collection_name=collection_name, points_selector=[memory_id])
+                        await qdrant.delete(
+                            collection_name=collection_name, points_selector=[memory_id]
+                        )
                         return True
                 except Exception:
                     continue
@@ -482,7 +491,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
         user_id: str,
         memory_type: Optional[MemoryType] = None,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[MemoryRecord]:
         """List memories for a user with optional filtering."""
         memories = []
@@ -496,13 +505,17 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                 async for key in redis.scan_iter(match=pattern):
                     keys.append(key)
 
-                for key in keys[offset:offset+limit]:
+                for key in keys[offset : offset + limit]:
                     data = await redis.get(key)
                     if data:
                         memories.append(self._parse_redis_memory(json.loads(data)))
 
             # MongoDB memories
-            if memory_type is None or memory_type in [MemoryType.JOURNAL, MemoryType.GOAL, MemoryType.HABIT]:
+            if memory_type is None or memory_type in [
+                MemoryType.JOURNAL,
+                MemoryType.GOAL,
+                MemoryType.HABIT,
+            ]:
                 mongo = self._get_mongo()
                 db = mongo.get_default_database()
 
@@ -515,16 +528,18 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                 for mem_type, collection_name in collection_map.items():
                     if memory_type is None or mem_type == memory_type:
                         cursor = db[collection_name].find(
-                            {"user_id": user_id},
-                            limit=limit,
-                            skip=offset
+                            {"user_id": user_id}, limit=limit, skip=offset
                         )
                         async for doc in cursor:
                             memories.append(self._parse_mongo_memory(doc))
 
             # Qdrant memories
-            if memory_type is None or memory_type in [MemoryType.PREFERENCE, MemoryType.BEHAVIORAL,
-                                                       MemoryType.KNOWLEDGE, MemoryType.EPISODIC]:
+            if memory_type is None or memory_type in [
+                MemoryType.PREFERENCE,
+                MemoryType.BEHAVIORAL,
+                MemoryType.KNOWLEDGE,
+                MemoryType.EPISODIC,
+            ]:
                 qdrant = self._get_qdrant()
                 collection_map = {
                     MemoryType.PREFERENCE: "long_term_preference",
@@ -537,13 +552,15 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                     if memory_type is None or mem_type == memory_type:
                         try:
                             filter_ = Filter(
-                                must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+                                must=[
+                                    FieldCondition(key="user_id", match=MatchValue(value=user_id))
+                                ]
                             )
                             result = await qdrant.scroll(
                                 collection_name=collection_name,
                                 scroll_filter=filter_,
                                 limit=limit,
-                                offset=offset
+                                offset=offset,
                             )
                             for point in result[0]:
                                 memories.append(self._parse_qdrant_memory(point))
@@ -557,9 +574,7 @@ class MultiBackendMemoryStorage(IMemoryStorage):
             return []
 
     async def count_user_memories(
-        self,
-        user_id: str,
-        memory_type: Optional[MemoryType] = None
+        self, user_id: str, memory_type: Optional[MemoryType] = None
     ) -> int:
         """Count memories for a user with optional filtering."""
         count = 0
@@ -573,7 +588,11 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                     count += 1
 
             # MongoDB memories
-            if memory_type is None or memory_type in [MemoryType.JOURNAL, MemoryType.GOAL, MemoryType.HABIT]:
+            if memory_type is None or memory_type in [
+                MemoryType.JOURNAL,
+                MemoryType.GOAL,
+                MemoryType.HABIT,
+            ]:
                 mongo = self._get_mongo()
                 db = mongo.get_default_database()
 
@@ -588,8 +607,12 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                         count += await db[collection_name].count_documents({"user_id": user_id})
 
             # Qdrant memories
-            if memory_type is None or memory_type in [MemoryType.PREFERENCE, MemoryType.BEHAVIORAL,
-                                                       MemoryType.KNOWLEDGE, MemoryType.EPISODIC]:
+            if memory_type is None or memory_type in [
+                MemoryType.PREFERENCE,
+                MemoryType.BEHAVIORAL,
+                MemoryType.KNOWLEDGE,
+                MemoryType.EPISODIC,
+            ]:
                 qdrant = self._get_qdrant()
                 collection_map = {
                     MemoryType.PREFERENCE: "long_term_preference",
@@ -602,9 +625,13 @@ class MultiBackendMemoryStorage(IMemoryStorage):
                     if memory_type is None or mem_type == memory_type:
                         try:
                             filter_ = Filter(
-                                must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+                                must=[
+                                    FieldCondition(key="user_id", match=MatchValue(value=user_id))
+                                ]
                             )
-                            result = await qdrant.count(collection_name=collection_name, count_filter=filter_)
+                            result = await qdrant.count(
+                                collection_name=collection_name, count_filter=filter_
+                            )
                             count += result.count
                         except Exception:
                             continue

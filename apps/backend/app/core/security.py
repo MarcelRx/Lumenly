@@ -34,9 +34,7 @@ def create_access_token(
     role: str | None = None,
     extra_claims: dict[str, Any] | None = None,
 ) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload: dict[str, Any] = {
         "sub": subject,
         "exp": expire,

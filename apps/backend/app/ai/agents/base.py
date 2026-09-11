@@ -5,6 +5,7 @@ Base Agent Interface - Foundation for all AI agents.
 This interface defines the contract that all specialized agents must implement,
 ensuring consistency across the multi-agent system.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict, Any
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentContext:
     """Context information passed to agents during processing."""
+
     user_id: str
     conversation_history: List[Dict[str, str]]
     retrieved_memories: List[str]
@@ -29,6 +31,7 @@ class AgentContext:
 @dataclass
 class AgentResponse:
     """Standardized response from agents."""
+
     content: str
     agent_type: str
     confidence: float
@@ -40,7 +43,7 @@ class AgentResponse:
 class BaseAgent(ABC):
     """
     Abstract base class for all AI agents.
-    
+
     Each specialized agent (Fitness Coach, Habit Coach, etc.) must inherit
     from this class and implement the required methods.
     """
@@ -64,11 +67,11 @@ class BaseAgent(ABC):
     ) -> AgentResponse:
         """
         Process a user query and generate a response.
-        
+
         Args:
             query: The user's query
             context: AgentContext with conversation history, memories, etc.
-            
+
         Returns:
             AgentResponse with the agent's answer and metadata
         """
@@ -95,9 +98,7 @@ class BaseAgent(ABC):
         context: AgentContext,
     ) -> List[LLMMessage]:
         """Build the message list for LLM generation."""
-        messages = [
-            LLMMessage(role="system", content=self.system_prompt)
-        ]
+        messages = [LLMMessage(role="system", content=self.system_prompt)]
 
         # Add retrieved memories to system prompt
         if context.retrieved_memories:
@@ -111,10 +112,9 @@ class BaseAgent(ABC):
 
         # Add conversation history
         for msg in context.conversation_history[-10:]:  # Last 10 turns
-            messages.append(LLMMessage(
-                role=msg.get("role", "user"),
-                content=msg.get("content", "")
-            ))
+            messages.append(
+                LLMMessage(role=msg.get("role", "user"), content=msg.get("content", ""))
+            )
 
         # Add current query
         messages.append(LLMMessage(role="user", content=query))
@@ -125,7 +125,7 @@ class BaseAgent(ABC):
         """Execute a registered tool."""
         if tool_name not in self._tools:
             raise ValueError(f"Tool '{tool_name}' not registered for agent {self.agent_type}")
-        
+
         tool_func = self._tools[tool_name]
         return await tool_func(**arguments)
 
@@ -154,7 +154,7 @@ class AgentFactory:
         agent_class = cls._agents.get(agent_type)
         if not agent_class:
             raise ValueError(f"Unknown agent type: {agent_type}")
-        
+
         return agent_class(**kwargs)
 
     @classmethod

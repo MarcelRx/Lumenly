@@ -9,6 +9,7 @@ This module provides REST endpoints for memory operations:
 - Memory statistics and behavior summary
 All endpoints require authentication and enforce multi-tenant isolation.
 """
+
 from datetime import datetime
 from typing import Annotated, List, Optional
 
@@ -32,23 +33,18 @@ router = APIRouter()
 # Request/Response Schemas
 class MemoryCreateRequest(BaseModel):
     """Request schema for creating a memory."""
+
     memory_type: MemoryType = Field(..., description="Type of memory to create")
     content: str = Field(..., min_length=1, max_length=100_000, description="Memory content")
     importance: MemoryImportance = Field(
-        default=MemoryImportance.MEDIUM,
-        description="Importance level of the memory"
+        default=MemoryImportance.MEDIUM, description="Importance level of the memory"
     )
     source: Optional[str] = Field(
-        default="user_input",
-        max_length=500,
-        description="Source of the memory"
+        default="user_input", max_length=500, description="Source of the memory"
     )
-    tags: List[str] = Field(
-        default_factory=list,
-        description="Tags for the memory"
-    )
+    tags: List[str] = Field(default_factory=list, description="Tags for the memory")
 
-    @field_validator('tags')
+    @field_validator("tags")
     @classmethod
     def validate_tags(cls, v: List[str]) -> List[str]:
         """Validate tags list length and individual tag length."""
@@ -62,6 +58,7 @@ class MemoryCreateRequest(BaseModel):
 
 class MemoryResponse(BaseModel):
     """Response schema for a memory."""
+
     id: str
     user_id: str
     memory_type: str
@@ -93,18 +90,17 @@ class MemoryResponse(BaseModel):
 
 class MemorySearchRequest(BaseModel):
     """Request schema for memory search."""
+
     query: str = Field(..., min_length=1, max_length=10_000, description="Search query")
     max_results: int = Field(default=10, ge=1, le=100, description="Maximum results to return")
-    memory_types: Optional[List[str]] = Field(
-        default=None,
-        description="Filter by memory types"
-    )
+    memory_types: Optional[List[str]] = Field(default=None, description="Filter by memory types")
     enable_ranking: bool = Field(default=True, description="Enable result ranking")
     enable_semantic_search: bool = Field(default=True, description="Enable semantic search")
 
 
 class MemorySearchResponse(BaseModel):
     """Response schema for memory search results."""
+
     results: List[dict]
     total_count: int
     query: str
@@ -112,6 +108,7 @@ class MemorySearchResponse(BaseModel):
 
 class MemoryUpdateRequest(BaseModel):
     """Request schema for updating a memory."""
+
     content: Optional[str] = Field(None, description="Updated memory content")
     importance: Optional[MemoryImportance] = Field(None, description="Updated importance level")
     tags: Optional[List[str]] = Field(None, description="Updated tags")
@@ -119,6 +116,7 @@ class MemoryUpdateRequest(BaseModel):
 
 class MemoryStatisticsResponse(BaseModel):
     """Response schema for memory statistics."""
+
     total_memories: int
     counts_by_type: dict
     recent_memory_count: int
@@ -128,6 +126,7 @@ class MemoryStatisticsResponse(BaseModel):
 
 class BehaviorSummaryResponse(BaseModel):
     """Response schema for behavior summary."""
+
     total_behavioral_events: int
     conversation_frequency: dict
     goal_completion_rate: dict
@@ -139,6 +138,7 @@ class BehaviorSummaryResponse(BaseModel):
 
 class MemoryConsolidationResponse(BaseModel):
     """Response schema for memory consolidation."""
+
     consolidated_count: int
     source_memory_ids: List[str]
     message: str
@@ -146,6 +146,7 @@ class MemoryConsolidationResponse(BaseModel):
 
 class MemoryCleanupResponse(BaseModel):
     """Response schema for memory cleanup."""
+
     kept: int
     archived: int
     compressed: int
@@ -185,7 +186,8 @@ async def create_memory(
     try:
         # Validate payload size
         import json
-        payload_size = len(json.dumps(request.model_dump()).encode('utf-8'))
+
+        payload_size = len(json.dumps(request.model_dump()).encode("utf-8"))
         default_validator.validate_payload_size(payload_size)
 
         from app.ai.memory.schema import MemoryMetadata
@@ -209,20 +211,19 @@ async def create_memory(
         if not memory:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve created memory"
+                detail="Failed to retrieve created memory",
             )
 
         return MemoryResponse.from_record(memory)
 
     except MemoryValidationError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Memory validation failed: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Memory validation failed: {str(e)}"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create memory: {str(e)}"
+            detail=f"Failed to create memory: {str(e)}",
         )
 
 
@@ -258,7 +259,7 @@ async def list_memories(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list memories: {str(e)}"
+            detail=f"Failed to list memories: {str(e)}",
         )
 
 
@@ -281,10 +282,7 @@ async def get_memory(
         memory = await memory_manager.get_memory_by_id(memory_id, str(current_user.id))
 
         if not memory:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Memory not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
         return MemoryResponse.from_record(memory)
 
@@ -293,7 +291,7 @@ async def get_memory(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve memory: {str(e)}"
+            detail=f"Failed to retrieve memory: {str(e)}",
         )
 
 
@@ -319,10 +317,7 @@ async def update_memory(
         # Verify memory exists and belongs to user
         existing = await memory_manager.get_memory_by_id(memory_id, str(current_user.id))
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Memory not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
         # Build updates
         updates = {}
@@ -335,8 +330,7 @@ async def update_memory(
 
         if not updates:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No updates provided"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="No updates provided"
             )
 
         success = await memory_manager.update_memory(
@@ -347,8 +341,7 @@ async def update_memory(
 
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update memory"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update memory"
             )
 
         # Return updated memory
@@ -360,7 +353,7 @@ async def update_memory(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update memory: {str(e)}"
+            detail=f"Failed to update memory: {str(e)}",
         )
 
 
@@ -383,10 +376,7 @@ async def delete_memory(
         # Verify memory exists and belongs to user
         existing = await memory_manager.get_memory_by_id(memory_id, str(current_user.id))
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Memory not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
         success = await memory_manager.delete_memory(
             memory_id=memory_id,
@@ -395,8 +385,7 @@ async def delete_memory(
 
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete memory"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete memory"
             )
 
     except HTTPException:
@@ -404,7 +393,7 @@ async def delete_memory(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete memory: {str(e)}"
+            detail=f"Failed to delete memory: {str(e)}",
         )
 
 
@@ -443,12 +432,14 @@ async def search_memories(
 
         formatted_results = []
         for result in results:
-            formatted_results.append({
-                "memory": MemoryResponse.from_record(result.memory).model_dump(),
-                "score": result.score,
-                "rank": result.rank,
-                "relevance_factors": result.relevance_factors,
-            })
+            formatted_results.append(
+                {
+                    "memory": MemoryResponse.from_record(result.memory).model_dump(),
+                    "score": result.score,
+                    "rank": result.rank,
+                    "relevance_factors": result.relevance_factors,
+                }
+            )
 
         return MemorySearchResponse(
             results=formatted_results,
@@ -459,7 +450,7 @@ async def search_memories(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to search memories: {str(e)}"
+            detail=f"Failed to search memories: {str(e)}",
         )
 
 
@@ -482,17 +473,13 @@ async def archive_memory(
         # Verify memory exists and belongs to user
         existing = await memory_manager.get_memory_by_id(memory_id, str(current_user.id))
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Memory not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
         success = await memory_manager.storage.archive_memory(memory_id, str(current_user.id))
 
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to archive memory"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to archive memory"
             )
 
         return {"message": "Memory archived successfully", "memory_id": memory_id}
@@ -502,7 +489,7 @@ async def archive_memory(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to archive memory: {str(e)}"
+            detail=f"Failed to archive memory: {str(e)}",
         )
 
 
@@ -525,7 +512,7 @@ async def summarize_memory(
         if not summary:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Memory not found or summarization failed"
+                detail="Memory not found or summarization failed",
             )
 
         return {
@@ -538,7 +525,7 @@ async def summarize_memory(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to summarize memory: {str(e)}"
+            detail=f"Failed to summarize memory: {str(e)}",
         )
 
 
@@ -562,7 +549,7 @@ async def get_memory_statistics(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get memory statistics: {str(e)}"
+            detail=f"Failed to get memory statistics: {str(e)}",
         )
 
 
@@ -586,7 +573,7 @@ async def get_behavior_summary(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get behavior summary: {str(e)}"
+            detail=f"Failed to get behavior summary: {str(e)}",
         )
 
 
@@ -624,7 +611,7 @@ async def consolidate_memories(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to consolidate memories: {str(e)}"
+            detail=f"Failed to consolidate memories: {str(e)}",
         )
 
 
@@ -649,13 +636,15 @@ async def cleanup_memories(
             policy_name=policy_name,
         )
 
-        return MemoryCleanupResponse.model_validate({
-            **results,
-            "message": f"Memory cleanup completed using policy '{policy_name}'",
-        })
+        return MemoryCleanupResponse.model_validate(
+            {
+                **results,
+                "message": f"Memory cleanup completed using policy '{policy_name}'",
+            }
+        )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to cleanup memories: {str(e)}"
+            detail=f"Failed to cleanup memories: {str(e)}",
         )

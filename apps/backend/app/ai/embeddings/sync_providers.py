@@ -5,6 +5,7 @@ Synchronous Embedding Provider Implementations for Celery Workers.
 These implementations provide synchronous embedding generation for use in
 Celery workers without creating event loops or using asyncio.run().
 """
+
 import logging
 from dataclasses import dataclass
 from typing import List, Optional
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SyncEmbeddingConfig:
     """Configuration for synchronous embedding providers."""
+
     provider: str  # "openai", "cohere", "fastembed", "sentence_transformers"
     model: str
     api_key: Optional[str] = None
@@ -84,11 +86,14 @@ class SyncOpenAIEmbeddingProvider(SyncEmbeddingProviderInterface):
     def initialize(self) -> None:
         try:
             from openai import OpenAI
+
             self._client = OpenAI(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
             )
-            logger.info(f"Sync OpenAI embedding provider initialized with model: {self.config.model}")
+            logger.info(
+                f"Sync OpenAI embedding provider initialized with model: {self.config.model}"
+            )
         except ImportError:
             raise ImportError("openai package not installed")
         except Exception as e:
@@ -158,11 +163,14 @@ class SyncCohereEmbeddingProvider(SyncEmbeddingProviderInterface):
     def initialize(self) -> None:
         try:
             import cohere
+
             self._client = cohere.Client(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
             )
-            logger.info(f"Sync Cohere embedding provider initialized with model: {self.config.model}")
+            logger.info(
+                f"Sync Cohere embedding provider initialized with model: {self.config.model}"
+            )
         except ImportError:
             raise ImportError("cohere package not installed")
         except Exception as e:
@@ -236,6 +244,7 @@ class SyncFastEmbedEmbeddingProvider(SyncEmbeddingProviderInterface):
     def initialize(self) -> None:
         try:
             from fastembed import TextEmbedding
+
             self._client = TextEmbedding(model_name=self.config.model)
             logger.info(f"Sync FastEmbed provider initialized with model: {self.config.model}")
         except ImportError:
@@ -287,8 +296,11 @@ class SyncSentenceTransformersEmbeddingProvider(SyncEmbeddingProviderInterface):
     def initialize(self) -> None:
         try:
             from sentence_transformers import SentenceTransformer
+
             self._client = SentenceTransformer(self.config.model)
-            logger.info(f"Sync SentenceTransformers provider initialized with model: {self.config.model}")
+            logger.info(
+                f"Sync SentenceTransformers provider initialized with model: {self.config.model}"
+            )
         except ImportError:
             raise ImportError("sentence-transformers package not installed")
         except Exception as e:
@@ -341,6 +353,7 @@ class SyncMockEmbeddingProvider(SyncEmbeddingProviderInterface):
         """Generate a deterministic mock embedding based on text hash."""
         # Create a deterministic but pseudo-random embedding based on text
         import hashlib
+
         hash_val = int(hashlib.md5(text.encode()).hexdigest(), 16)
 
         # Use configured dimension or default to 1536 (OpenAI default)

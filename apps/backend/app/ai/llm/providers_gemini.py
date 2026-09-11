@@ -7,6 +7,7 @@ This provider supports:
 - Gemini 1.5 Pro (gemini-1.5-pro)
 - Other Gemini models via configuration
 """
+
 import logging
 import time
 from typing import Any, AsyncIterator, Dict, List, Optional
@@ -35,6 +36,7 @@ try:
         llm_request_failures_total,
         llm_requests_total,
     )
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -47,6 +49,7 @@ class GeminiProvider(LLMProviderInterface):
     async def initialize(self) -> None:
         try:
             import httpx
+
             self._client = httpx.AsyncClient(
                 timeout=self.config.timeout,
                 base_url=self.config.base_url or "https://generativelanguage.googleapis.com",
@@ -71,10 +74,12 @@ class GeminiProvider(LLMProviderInterface):
                 raise LLMProviderAuthenticationError("Gemini API key not provided")
 
             # Determine API version from config or default
-            api_version = getattr(self.config, 'api_version', 'v1beta')
+            api_version = getattr(self.config, "api_version", "v1beta")
 
             # Build URL
-            url = f"{self._client.base_url}/{api_version}/models/{self.config.model}:generateContent"
+            url = (
+                f"{self._client.base_url}/{api_version}/models/{self.config.model}:generateContent"
+            )
 
             # Convert LLMMessage to Gemini format
             # Gemini uses a different message structure
@@ -86,18 +91,13 @@ class GeminiProvider(LLMProviderInterface):
                     system_instruction = msg.content
                 else:
                     role = "user" if msg.role == "user" else "model"
-                    contents.append({
-                        "role": role,
-                        "parts": [{"text": msg.content}]
-                    })
+                    contents.append({"role": role, "parts": [{"text": msg.content}]})
 
             # Build request payload
             payload = {"contents": contents}
 
             if system_instruction:
-                payload["systemInstruction"] = {
-                    "parts": [{"text": system_instruction}]
-                }
+                payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
             if tools:
                 # Gemini function calling format
@@ -126,14 +126,16 @@ class GeminiProvider(LLMProviderInterface):
                 elif "functionCall" in part:
                     if tool_calls is None:
                         tool_calls = []
-                    tool_calls.append({
-                        "id": part.get("functionCall", {}).get("name", ""),
-                        "type": "function",
-                        "function": {
-                            "name": part.get("functionCall", {}).get("name", ""),
-                            "arguments": str(part.get("functionCall", {}).get("args", {}))
+                    tool_calls.append(
+                        {
+                            "id": part.get("functionCall", {}).get("name", ""),
+                            "type": "function",
+                            "function": {
+                                "name": part.get("functionCall", {}).get("name", ""),
+                                "arguments": str(part.get("functionCall", {}).get("args", {})),
+                            },
                         }
-                    })
+                    )
 
             # Extract usage metadata if available
             usage = None
@@ -158,8 +160,12 @@ class GeminiProvider(LLMProviderInterface):
                 llm_request_duration_seconds.labels(provider="gemini").observe(duration)
 
                 if usage:
-                    llm_input_tokens_total.labels(provider="gemini").inc(usage.get("prompt_tokens", 0))
-                    llm_output_tokens_total.labels(provider="gemini").inc(usage.get("completion_tokens", 0))
+                    llm_input_tokens_total.labels(provider="gemini").inc(
+                        usage.get("prompt_tokens", 0)
+                    )
+                    llm_output_tokens_total.labels(provider="gemini").inc(
+                        usage.get("completion_tokens", 0)
+                    )
 
             return result
 
@@ -167,7 +173,9 @@ class GeminiProvider(LLMProviderInterface):
             # Record failure metrics
             if METRICS_AVAILABLE:
                 duration = time.time() - start_time
-                llm_request_failures_total.labels(provider="gemini", failure_type=type(e).__name__).inc()
+                llm_request_failures_total.labels(
+                    provider="gemini", failure_type=type(e).__name__
+                ).inc()
                 llm_request_duration_seconds.labels(provider="gemini").observe(duration)
 
             self._handle_error(e)
@@ -182,7 +190,7 @@ class GeminiProvider(LLMProviderInterface):
             if not api_key:
                 raise LLMProviderAuthenticationError("Gemini API key not provided")
 
-            api_version = getattr(self.config, 'api_version', 'v1beta')
+            api_version = getattr(self.config, "api_version", "v1beta")
             url = f"{self._client.base_url}/{api_version}/models/{self.config.model}:streamGenerateContent"
 
             # Convert messages to Gemini format
@@ -194,17 +202,12 @@ class GeminiProvider(LLMProviderInterface):
                     system_instruction = msg.content
                 else:
                     role = "user" if msg.role == "user" else "model"
-                    contents.append({
-                        "role": role,
-                        "parts": [{"text": msg.content}]
-                    })
+                    contents.append({"role": role, "parts": [{"text": msg.content}]})
 
             payload = {"contents": contents}
 
             if system_instruction:
-                payload["systemInstruction"] = {
-                    "parts": [{"text": system_instruction}]
-                }
+                payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
             if tools:
                 payload["tools"] = tools
@@ -218,9 +221,12 @@ class GeminiProvider(LLMProviderInterface):
                         try:
                             # Parse JSON lines from streaming response
                             import json
+
                             data = json.loads(line)
                             if "candidates" in data and data["candidates"]:
-                                for part in data["candidates"][0].get("content", {}).get("parts", []):
+                                for part in (
+                                    data["candidates"][0].get("content", {}).get("parts", [])
+                                ):
                                     if "text" in part:
                                         yield part["text"]
                         except json.JSONDecodeError:
@@ -248,13 +254,13 @@ class GeminiProvider(LLMProviderInterface):
             if not api_key:
                 return False
 
-            api_version = getattr(self.config, 'api_version', 'v1beta')
-            url = f"{self._client.base_url}/{api_version}/models/{self.config.model}:generateContent"
+            api_version = getattr(self.config, "api_version", "v1beta")
+            url = (
+                f"{self._client.base_url}/{api_version}/models/{self.config.model}:generateContent"
+            )
 
             headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
-            payload = {
-                "contents": [{"role": "user", "parts": [{"text": "ping"}]}]
-            }
+            payload = {"contents": [{"role": "user", "parts": [{"text": "ping"}]}]}
 
             response = await self._client.post(url, headers=headers, json=payload)
             return response.status_code == 200

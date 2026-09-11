@@ -63,7 +63,5 @@ async def close_mongo() -> None:
 def get_mongo_client() -> AsyncIOMotorClient:
     """Return the initialized MongoDB client for use in services and endpoints."""
     if mongo_client is None:
-        raise RuntimeError(
-            "MongoDB client is not initialized or the connection failed at startup."
-        )
+        raise RuntimeError("MongoDB client is not initialized or the connection failed at startup.")
     return mongo_client

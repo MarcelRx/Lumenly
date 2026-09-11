@@ -9,6 +9,7 @@ This module implements security measures to protect against:
 - Document poisoning risks
 - Unauthorized memory access
 """
+
 import logging
 import re
 from typing import List, Dict, Any
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SecurityConfig:
     """Security configuration for AI components."""
+
     enable_user_isolation: bool = True
     enable_prompt_injection_detection: bool = True
     enable_input_sanitization: bool = True
@@ -31,8 +33,13 @@ class SecurityConfig:
     def __post_init__(self):
         if self.allowed_memory_types is None:
             self.allowed_memory_types = [
-                "conversation", "journal", "goal", "habit", 
-                "preference", "behavioral", "knowledge"
+                "conversation",
+                "journal",
+                "goal",
+                "habit",
+                "preference",
+                "behavioral",
+                "knowledge",
             ]
         if self.blocked_domains is None:
             self.blocked_domains = []
@@ -49,26 +56,26 @@ class AISecurityValidator:
     def validate_user_access(self, user_id: str, target_user_id: str) -> bool:
         """
         Validate that a user can access another user's data.
-        
+
         Args:
             user_id: The requesting user's ID
             target_user_id: The target user's ID to access
-            
+
         Returns:
             True if access is allowed, False otherwise
         """
         if not self.config.enable_user_isolation:
             return True  # Isolation disabled (not recommended for production)
-        
+
         return user_id == target_user_id
 
     def sanitize_input(self, text: str) -> str:
         """
         Sanitize user input to prevent injection attacks.
-        
+
         Args:
             text: Raw user input
-            
+
         Returns:
             Sanitized text
         """
@@ -78,8 +85,10 @@ class AISecurityValidator:
         # Remove potential system prompt injection patterns
         injection_patterns = [
             r"<\|.*?\|>",  # Special token patterns
-            r"<system>", r"</system>",  # System tags
-            r"<assistant>", r"</assistant>",  # Assistant tags
+            r"<system>",
+            r"</system>",  # System tags
+            r"<assistant>",
+            r"</assistant>",  # Assistant tags
             r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]",  # Control characters
         ]
 
@@ -89,7 +98,7 @@ class AISecurityValidator:
 
         # Limit length
         if len(sanitized) > self.config.max_context_length:
-            sanitized = sanitized[:self.config.max_context_length]
+            sanitized = sanitized[: self.config.max_context_length]
             logger.warning("Input truncated due to length limit")
 
         return sanitized
@@ -97,10 +106,10 @@ class AISecurityValidator:
     def detect_prompt_injection(self, text: str) -> tuple[bool, str]:
         """
         Detect potential prompt injection attempts.
-        
+
         Args:
             text: Input text to analyze
-            
+
         Returns:
             Tuple of (is_injection, reason)
         """
@@ -131,10 +140,10 @@ class AISecurityValidator:
     def filter_output(self, text: str) -> str:
         """
         Filter AI output to remove potentially harmful content.
-        
+
         Args:
             text: AI-generated output
-            
+
         Returns:
             Filtered text
         """
@@ -163,12 +172,12 @@ class AISecurityValidator:
     ) -> bool:
         """
         Validate that a user can access a specific memory.
-        
+
         Args:
             user_id: The requesting user's ID
             memory_type: Type of memory being accessed
             memory_user_id: Owner of the memory
-            
+
         Returns:
             True if access is allowed, False otherwise
         """
@@ -187,11 +196,11 @@ class AISecurityValidator:
     ) -> bool:
         """
         Validate vector search filters to prevent cross-user data access.
-        
+
         Args:
             user_id: The requesting user's ID
             filter_dict: Filter dictionary for vector search
-            
+
         Returns:
             True if filter is valid, False otherwise
         """
@@ -223,10 +232,10 @@ class PromptInjectionMitigation:
     def wrap_user_message(message: str) -> str:
         """
         Wrap user message to prevent instruction override.
-        
+
         Args:
             message: Original user message
-            
+
         Returns:
             Safely wrapped message
         """
@@ -236,10 +245,10 @@ class PromptInjectionMitigation:
     def add_security_context(prompt: str) -> str:
         """
         Add security context to system prompt.
-        
+
         Args:
             prompt: Original system prompt
-            
+
         Returns:
             Enhanced prompt with security context
         """
@@ -266,18 +275,18 @@ class DataLeakagePrevention:
     ) -> List[str]:
         """
         Ensure retrieved context belongs to the requesting user.
-        
+
         Args:
             context: Retrieved context chunks
             user_id: Requesting user ID
-            
+
         Returns:
             Sanitized context list
         """
         # In a real implementation, this would verify that each chunk
         # belongs to the user. For now, we assume the vector search
         # already filtered by user_id.
-        
+
         # Additional safety: remove any chunks that might contain
         # user identifiers from other users
         sanitized = []
@@ -295,16 +304,22 @@ class DataLeakagePrevention:
     def filter_sensitive_fields(payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Remove sensitive fields from vector payloads before returning.
-        
+
         Args:
             payload: Original payload
-            
+
         Returns:
             Filtered payload
         """
         sensitive_fields = [
-            "email", "phone", "ssn", "credit_card", 
-            "password", "api_key", "token", "secret"
+            "email",
+            "phone",
+            "ssn",
+            "credit_card",
+            "password",
+            "api_key",
+            "token",
+            "secret",
         ]
 
         filtered = payload.copy()
@@ -332,7 +347,7 @@ class SecurityAuditor:
     ) -> None:
         """
         Log a suspicious security activity.
-        
+
         Args:
             user_id: User ID involved
             activity_type: Type of suspicious activity
@@ -353,7 +368,7 @@ class SecurityAuditor:
     def get_security_report(self) -> Dict[str, Any]:
         """
         Generate a security report.
-        
+
         Returns:
             Security report with statistics
         """

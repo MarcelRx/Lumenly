@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "lumenly_vectors"
 
+
 def get_vector_dimension() -> int:
     """Get the current vector dimension from settings."""
     return settings.VECTOR_DIMENSION
@@ -41,8 +42,14 @@ class VectorService:
             if COLLECTION_NAME not in existing_collections:
                 vector_dim = get_vector_dimension()
                 logger.info(f"Creating collection '{COLLECTION_NAME}' with {vector_dim} dimensions")
-                distance_metric = models.Distance.COSINE if settings.DISTANCE_METRIC == "Cosine" else (
-                    models.Distance.EUCLID if settings.DISTANCE_METRIC == "Euclid" else models.Distance.DOT
+                distance_metric = (
+                    models.Distance.COSINE
+                    if settings.DISTANCE_METRIC == "Cosine"
+                    else (
+                        models.Distance.EUCLID
+                        if settings.DISTANCE_METRIC == "Euclid"
+                        else models.Distance.DOT
+                    )
                 )
                 await client.create_collection(
                     collection_name=COLLECTION_NAME,
