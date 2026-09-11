@@ -116,7 +116,7 @@ jobs:
               from httpx import AsyncClient
               async with AsyncClient() as client:
                   try:
-                      response = await client.get('http://localhost:6333/health')
+                      response = await client.get('http://localhost:6333/')
                       if response.status_code == 200:
                           print('✓ Qdrant connection successful')
                       else:
