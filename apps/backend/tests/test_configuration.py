@@ -647,7 +647,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="APP_DEBUG must be False in production"):
@@ -666,7 +667,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="RATE_LIMIT_ENABLED must be True in production"):
@@ -685,7 +687,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="POSTGRES_URL must not contain localhost in production"):
@@ -704,7 +707,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://localhost:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="MONGODB_URL must not contain localhost in production"):
@@ -723,7 +727,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://localhost:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="REDIS_URL must not contain localhost in production"):
@@ -742,7 +747,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://localhost:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="QDRANT_URL must not contain localhost in production"):
@@ -821,7 +827,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="JWT_SECRET_RS256_PRIVATE is required when JWT_ALGORITHM=RS256"):
@@ -842,7 +849,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="JWT_SECRET_RS256_PUBLIC is required when JWT_ALGORITHM=RS256"):
@@ -864,7 +872,8 @@ class TestEnvironmentContracts:
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
-            GROQ_API_KEY="test-groq-key"
+            GROQ_API_KEY="test-groq-key",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         assert config.JWT_ALGORITHM == "RS256"
@@ -883,7 +892,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="At least one LLM API key"):
@@ -938,7 +948,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters in production"):
@@ -957,7 +968,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="JWT_SECRET must be at least 32 characters in production"):
@@ -976,7 +988,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="SECRET_KEY and JWT_SECRET must be different in production"):
@@ -996,7 +1009,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="RATE_LIMIT_FAIL_OPEN must be False in production"):
@@ -1013,7 +1027,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://test",
             MONGODB_URL="mongodb://test",
             REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333"
+            QDRANT_URL="http://localhost:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="APP_DEBUG must be False in staging environment"):
@@ -1031,7 +1046,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://test",
             MONGODB_URL="mongodb://test",
             REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333"
+            QDRANT_URL="http://localhost:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         with pytest.raises(ValueError, match="RATE_LIMIT_ENABLED must be True in staging environment"):
@@ -1052,7 +1068,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         assert config.APP_ENV == "production"
