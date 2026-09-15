@@ -819,6 +819,8 @@ class TestEnvironmentContracts:
         monkeypatch.setenv("APP_DEBUG", "false")
         monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
         monkeypatch.setenv("JWT_ALGORITHM", "RS256")
+        monkeypatch.delenv("JWT_SECRET_RS256_PRIVATE", raising=False)
+        monkeypatch.delenv("JWT_SECRET_RS256_PUBLIC", raising=False)
 
         config = SettingsWithoutEnv(
             SECRET_KEY="test-secret-key-production-32chars",
@@ -841,6 +843,7 @@ class TestEnvironmentContracts:
         monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
         monkeypatch.setenv("JWT_ALGORITHM", "RS256")
         monkeypatch.setenv("JWT_SECRET_RS256_PRIVATE", "test-private-key")
+        monkeypatch.delenv("JWT_SECRET_RS256_PUBLIC", raising=False)
 
         config = SettingsWithoutEnv(
             SECRET_KEY="test-secret-key-production-32chars",
@@ -873,7 +876,9 @@ class TestEnvironmentContracts:
             REDIS_URL="redis://production-host:6379/0",
             QDRANT_URL="http://production-host:6333",
             GROQ_API_KEY="test-groq-key",
-            ALLOW_ORIGINS="https://example.com,https://app.example.com"
+            ALLOW_ORIGINS="https://example.com,https://app.example.com",
+            JWT_SECRET_RS256_PRIVATE="test-private-key",
+            JWT_SECRET_RS256_PUBLIC="test-public-key"
         )
 
         assert config.JWT_ALGORITHM == "RS256"
@@ -885,6 +890,8 @@ class TestEnvironmentContracts:
         monkeypatch.setenv("APP_ENV", "production")
         monkeypatch.setenv("APP_DEBUG", "false")
         monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
         config = SettingsWithoutEnv(
             SECRET_KEY="test-secret-key-production-32chars",
@@ -912,7 +919,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         assert config.GROQ_API_KEY == "test-groq-key"
@@ -930,7 +938,8 @@ class TestEnvironmentContracts:
             POSTGRES_URL="postgresql://production-host:5432/lumenly",
             MONGODB_URL="mongodb://production-host:27017/lumenly",
             REDIS_URL="redis://production-host:6379/0",
-            QDRANT_URL="http://production-host:6333"
+            QDRANT_URL="http://production-host:6333",
+            ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
         assert config.GEMINI_API_KEY == "test-gemini-key"
