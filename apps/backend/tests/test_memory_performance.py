@@ -11,7 +11,7 @@ These tests focus on performance aspects:
 """
 import asyncio
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -108,7 +108,7 @@ class TestMemoryRetrievalPerformance:
                 memory_type=MemoryType.JOURNAL,
                 importance=MemoryImportance.MEDIUM,
                 access_count=i % 10,
-                created_at=datetime.now(timezone.utc) - timedelta(days=i % 30),
+                created_at=datetime.now(UTC) - timedelta(days=i % 30),
             )
 
             memory = MemoryRecord(
@@ -179,7 +179,7 @@ class TestMemoryRankingPerformance:
                 memory_type=MemoryType.JOURNAL,
                 importance=MemoryImportance.MEDIUM,
                 access_count=i % 20,
-                created_at=datetime.now(timezone.utc) - timedelta(days=i % 365),
+                created_at=datetime.now(UTC) - timedelta(days=i % 365),
             )
 
             memory = MemoryRecord(
@@ -551,7 +551,6 @@ class TestMemoryBenchmark:
     """Comprehensive memory benchmarks."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Performance benchmark - not relevant to configuration hardening")
     async def test_comprehensive_benchmark(self):
         """Run comprehensive memory system benchmark."""
         import tracemalloc
@@ -605,7 +604,7 @@ class TestMemoryBenchmark:
                     memory_type=MemoryType.JOURNAL,
                     importance=MemoryImportance.MEDIUM,
                     access_count=j,
-                    created_at=datetime.now(timezone.utc) - timedelta(days=j),
+                    created_at=datetime.now(UTC) - timedelta(days=j),
                 )
                 sample_memories.append(
                     MemoryRecord(

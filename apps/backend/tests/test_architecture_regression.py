@@ -50,9 +50,7 @@ class TestCeleryAsyncioFree:
                 is_celery_task = False
                 for decorator in node.decorator_list:
                     if isinstance(decorator, ast.Call):
-                        if hasattr(decorator.func, 'id') and 'task' in str(decorator.func.id):
-                            is_celery_task = True
-                        elif hasattr(decorator.func, 'attr') and 'task' in str(decorator.func.attr):
+                        if hasattr(decorator.func, 'id') and 'task' in str(decorator.func.id) or hasattr(decorator.func, 'attr') and 'task' in str(decorator.func.attr):
                             is_celery_task = True
 
                 if is_celery_task:
@@ -334,7 +332,7 @@ class TestSecurityPipeline:
         if 'if self.APP_ENV == "production":' in content:
             production_start = content.find('if self.APP_ENV == "production":')
             # Get a reasonable window for the production section
-            production_section = content[production_start:production_start + 3000]
+            production_section = content[production_start:production_start + 5000]
         else:
             pytest.fail("Could not find production section in config.py")
 
