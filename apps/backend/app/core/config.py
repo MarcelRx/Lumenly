@@ -111,6 +111,115 @@ class Settings(BaseSettings):
                 "Replace placeholder/test secrets with real production values."
             )
 
+    def _validate_environment_contracts(self) -> None:
+        """Validate environment-specific configuration contracts."""
+        if self.APP_ENV == "development":
+            # Development allows most things, but should warn about obvious issues
+            if self.APP_DEBUG is False:
+                import warnings
+
+                warnings.warn(
+                    "APP_DEBUG is False in development environment. "
+                    "This may make debugging difficult.",
+                    RuntimeWarning,
+                )
+            return
+
+        if self.APP_ENV == "test":
+            # Test environment should be deterministic
+            if self.APP_DEBUG is True:
+                import warnings
+
+                warnings.warn(
+                    "APP_DEBUG is True in test environment. "
+                    "Tests should run with debug disabled for production-like behavior.",
+                    RuntimeWarning,
+                )
+            return
+
+        if self.APP_ENV == "staging":
+            # Staging should behave like production
+            if self.APP_DEBUG is True:
+                raise ValueError(
+                    "APP_DEBUG must be False in staging environment. "
+                    "Staging should behave like production."
+                )
+            if self.RATE_LIMIT_ENABLED is False:
+                raise ValueError(
+                    "RATE_LIMIT_ENABLED must be True in staging environment. "
+                    "Staging should behave like production."
+                )
+            return
+
+        if self.APP_ENV == "production":
+            # Production has strict requirements
+            errors = []
+
+            # APP_DEBUG must be False
+            if self.APP_DEBUG is not False:
+                errors.append("APP_DEBUG must be False in production")
+
+            # RATE_LIMIT_ENABLED must be True
+            if self.RATE_LIMIT_ENABLED is not True:
+                errors.append("RATE_LIMIT_ENABLED must be True in production")
+
+            # RATE_LIMIT_FAIL_OPEN must be False
+            if self.RATE_LIMIT_FAIL_OPEN is not False:
+                errors.append("RATE_LIMIT_FAIL_OPEN must be False in production (fail-closed)")
+
+            # Secret key length validation
+            if len(self.SECRET_KEY) < 32:
+                errors.append("SECRET_KEY must be at least 32 characters in production")
+
+            if len(self.JWT_SECRET) < 32:
+                errors.append("JWT_SECRET must be at least 32 characters in production")
+
+            # SECRET_KEY and JWT_SECRET must be different
+            if self.SECRET_KEY == self.JWT_SECRET:
+                errors.append("SECRET_KEY and JWT_SECRET must be different in production")
+
+            # Check for localhost in infrastructure URLs
+
+            if self.POSTGRES_URL and "localhost" in self.POSTGRES_URL:
+                errors.append("POSTGRES_URL must not contain localhost in production")
+
+            if self.MONGODB_URL and "localhost" in self.MONGODB_URL:
+                errors.append("MONGODB_URL must not contain localhost in production")
+
+            if self.REDIS_URL and "localhost" in self.REDIS_URL:
+                errors.append("REDIS_URL must not contain localhost in production")
+
+            if self.QDRANT_URL and "localhost" in self.QDRANT_URL:
+                errors.append("QDRANT_URL must not contain localhost in production")
+
+            # Check CORS origins for localhost
+            if self.ALLOW_ORIGINS:
+                origins = [origin.strip() for origin in self.ALLOW_ORIGINS.split(",")]
+                for origin in origins:
+                    if "localhost" in origin.lower() or "127.0.0.1" in origin:
+                        errors.append(
+                            f"ALLOW_ORIGINS contains localhost address '{origin}' in production"
+                        )
+
+            # Check RS256 keys if algorithm is RS256
+            if self.JWT_ALGORITHM == "RS256":
+                if not self.JWT_SECRET_RS256_PRIVATE:
+                    errors.append("JWT_SECRET_RS256_PRIVATE is required when JWT_ALGORITHM=RS256")
+                if not self.JWT_SECRET_RS256_PUBLIC:
+                    errors.append("JWT_SECRET_RS256_PUBLIC is required when JWT_ALGORITHM=RS256")
+
+            # At least one LLM provider must be configured
+            if not self.GROQ_API_KEY and not self.GEMINI_API_KEY:
+                errors.append(
+                    "At least one LLM API key (GROQ_API_KEY or GEMINI_API_KEY) must be set in production"
+                )
+
+            if errors:
+                raise ValueError(
+                    f"Production environment contract validation failed: {', '.join(errors)}. "
+                    "Production requires explicit secure configuration."
+                )
+
     # Infrastructure URLs
     POSTGRES_URL: str = Field(
         ...,
@@ -265,3 +374,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Run validation only in production/staging environments
+# Development and test environments skip validation to allow flexible testing
+if settings.APP_ENV in ["production", "staging"]:
+    try:
+        settings.validate_embedding_config()
+        settings._validate_production_secrets()
+        settings._validate_environment_contracts()
+    except ValueError as e:
+        raise ValueError(f"Configuration validation failed: {e}")

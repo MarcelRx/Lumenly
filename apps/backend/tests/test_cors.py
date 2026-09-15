@@ -140,12 +140,16 @@ class TestCorsSecurity:
         """Test that wildcard origins are rejected in production."""
         with pytest.raises(ValueError, match="Wildcard CORS origins are not allowed in production"):
             settings = Settings(
-                SECRET_KEY="test-secret",
-                POSTGRES_URL="postgresql://test",
-                MONGODB_URL="mongodb://test",
-                REDIS_URL="redis://test",
-                QDRANT_URL="http://localhost:6333",
+                SECRET_KEY="test-secret-key-production-32chars",
+                JWT_SECRET="test-jwt-secret-production-32chars",
+                POSTGRES_URL="postgresql://production-host:5432/lumenly",
+                MONGODB_URL="mongodb://production-host:27017/lumenly",
+                REDIS_URL="redis://production-host:6379/0",
+                QDRANT_URL="http://production-host:6333",
                 APP_ENV="production",
+                APP_DEBUG="false",
+                RATE_LIMIT_ENABLED="true",
+                GROQ_API_KEY="test-groq-key",
                 ALLOW_ORIGINS="*"
             )
 
@@ -176,12 +180,16 @@ class TestCorsSecurity:
     def test_production_specific_origins_allowed(self):
         """Test that specific origins are allowed in production."""
         settings = Settings(
-            SECRET_KEY="test-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333",
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
+            GROQ_API_KEY="test-groq-key",
             ALLOW_ORIGINS="https://example.com,https://app.example.com"
         )
 
@@ -280,12 +288,16 @@ class TestCorsEnvironmentBehavior:
     def test_production_no_fallback(self):
         """Test that production doesn't use fallback origins."""
         settings = Settings(
-            SECRET_KEY="test-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333",
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
+            GROQ_API_KEY="test-groq-key",
             ALLOW_ORIGINS=""
         )
 
@@ -320,12 +332,16 @@ class TestCorsSecurityEdgeCases:
     def test_multiple_configured_origins_enforced(self):
         """Test that multiple configured origins are all enforced."""
         settings = Settings(
-            SECRET_KEY="test-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333",
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
+            GROQ_API_KEY="test-groq-key",
             ALLOW_ORIGINS="https://example.com,https://app.example.com,https://admin.example.com"
         )
 
@@ -338,12 +354,16 @@ class TestCorsSecurityEdgeCases:
     def test_wildcard_with_mixed_origins_rejected_in_production(self):
         """Test that wildcard mixed with specific origins is rejected in production."""
         settings = Settings(
-            SECRET_KEY="test-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333",
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
+            GROQ_API_KEY="test-groq-key",
             ALLOW_ORIGINS="*,https://example.com"
         )
 
@@ -360,12 +380,15 @@ class TestCorsSecurityEdgeCases:
     def test_staging_environment_treats_as_production(self):
         """Test that staging environment has production-like CORS restrictions."""
         settings = Settings(
-            SECRET_KEY="test-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333",
+            SECRET_KEY="test-secret-key-staging-32chars",
+            JWT_SECRET="test-jwt-secret-staging-32chars",
+            POSTGRES_URL="postgresql://staging-host:5432/lumenly",
+            MONGODB_URL="mongodb://staging-host:27017/lumenly",
+            REDIS_URL="redis://staging-host:6379/0",
+            QDRANT_URL="http://staging-host:6333",
             APP_ENV="staging",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             ALLOW_ORIGINS="*"
         )
 
@@ -378,12 +401,16 @@ class TestCorsSecurityEdgeCases:
     def test_credentials_require_specific_origin(self):
         """Test that credentials should only be allowed with specific origins."""
         settings = Settings(
-            SECRET_KEY="test-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333",
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
+            GROQ_API_KEY="test-groq-key",
             ALLOW_ORIGINS="https://example.com",
             ALLOW_CREDENTIALS=True
         )

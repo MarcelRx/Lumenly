@@ -327,16 +327,16 @@ class TestSecurityPipeline:
 
     def test_rate_limiting_fail_closed_in_production(self):
         """Production must fail-closed on rate limiting errors."""
-        main_file = Path(__file__).parent.parent / "app/main.py"
-        content = main_file.read_text()
+        config_file = Path(__file__).parent.parent / "app/core/config.py"
+        content = config_file.read_text()
 
-        # Extract production section
-        if 'if settings.APP_ENV == "production":' in content:
-            production_start = content.find('if settings.APP_ENV == "production":')
+        # Extract production validation section
+        if 'if self.APP_ENV == "production":' in content:
+            production_start = content.find('if self.APP_ENV == "production":')
             # Get a reasonable window for the production section
             production_section = content[production_start:production_start + 3000]
         else:
-            pytest.fail("Could not find production section in main.py")
+            pytest.fail("Could not find production section in config.py")
 
         # In production, RATE_LIMIT_FAIL_OPEN should cause startup failure
         assert "RATE_LIMIT_FAIL_OPEN" in production_section, \

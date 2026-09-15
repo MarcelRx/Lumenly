@@ -159,6 +159,7 @@ class TestEmbeddingProviderConfiguration:
     def test_custom_embedding_provider(self, monkeypatch):
         """Test custom embedding provider."""
         monkeypatch.setenv("EMBEDDING_PROVIDER", "cohere")
+        monkeypatch.setenv("VECTOR_DIMENSION", "1024")  # Cohere expects 1024
 
         config = Settings(
             SECRET_KEY="test-secret",

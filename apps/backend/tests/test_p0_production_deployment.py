@@ -47,6 +47,8 @@ class TestProductionSecretsValidation:
 
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             SECRET_KEY="test_secret_key_do_not_use_in_production",
             JWT_SECRET="real_jwt_secret_32_characters_long_valid",
             POSTGRES_URL="postgresql+asyncpg://user:realpass@host:5432/db",
@@ -67,6 +69,8 @@ class TestProductionSecretsValidation:
 
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             SECRET_KEY="real_secret_key_32_characters_long_valid",
             JWT_SECRET="test_jwt_secret_do_not_use_in_production",
             POSTGRES_URL="postgresql+asyncpg://user:realpass@host:5432/db",
@@ -86,6 +90,8 @@ class TestProductionSecretsValidation:
 
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             SECRET_KEY="real_secret_key_32_characters_long_valid",
             JWT_SECRET="real_jwt_secret_32_characters_long_valid",
             POSTGRES_URL="postgresql+asyncpg://user:lumenly@host:5432/db",  # "lumenly" is placeholder
@@ -105,6 +111,8 @@ class TestProductionSecretsValidation:
 
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             SECRET_KEY="real_secret_key_32_characters_long_valid",
             JWT_SECRET="real_jwt_secret_32_characters_long_valid",
             POSTGRES_URL="postgresql+asyncpg://user:realpass@host:5432/db",
@@ -202,6 +210,8 @@ class TestConfigurationValidation:
         # Test that localhost in production POSTGRES_URL is rejected
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             SECRET_KEY="real_secret_key_32_characters_long_valid",
             JWT_SECRET="real_jwt_secret_32_characters_long_valid_different",
             POSTGRES_URL="postgresql+asyncpg://user:pass@localhost:5432/db",
@@ -221,6 +231,8 @@ class TestConfigurationValidation:
 
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true",
             SECRET_KEY="same_secret_key_32_characters_long",
             JWT_SECRET="same_secret_key_32_characters_long",
             POSTGRES_URL="postgresql+asyncpg://user:realpass@host:5432/db",
@@ -239,6 +251,7 @@ class TestConfigurationValidation:
 
         settings = Settings(
             APP_ENV="production",
+            APP_DEBUG="false",
             SECRET_KEY="real_secret_key_32_characters_long_valid",
             JWT_SECRET="real_jwt_secret_32_characters_long_valid_different",
             POSTGRES_URL="postgresql+asyncpg://user:realpass@host:5432/db",

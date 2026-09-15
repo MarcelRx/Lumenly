@@ -97,77 +97,16 @@ if settings.APP_ENV == "staging" and "*" in allowed_origins:
 if not allowed_origins and settings.APP_ENV == "development":
     allowed_origins = ["http://localhost:3000", "http://localhost:8000"]
 
-# Security validation: validate embedding configuration
-try:
-    settings.validate_embedding_config()
-except ValueError as e:
-    if settings.APP_ENV == "production":
-        raise ValueError(f"Embedding configuration validation failed: {e}")
-    else:
-        import warnings
-
-        warnings.warn(f"Embedding configuration validation failed: {e}", RuntimeWarning)
-
-# Production configuration validation
-if settings.APP_ENV == "production":
-    # Validate critical security settings
-    if len(settings.SECRET_KEY) < 32:
-        raise ValueError(
-            "SECRET_KEY is too short for production. "
-            "Use a strong secret key with at least 32 characters."
-        )
-
-    if len(settings.JWT_SECRET) < 32:
-        raise ValueError(
-            "JWT_SECRET is too short for production. "
-            "Use a strong JWT secret with at least 32 characters."
-        )
-
-    if settings.SECRET_KEY == settings.JWT_SECRET:
-        raise ValueError("SECRET_KEY and JWT_SECRET must be different for security.")
-
-    if settings.RATE_LIMIT_ENABLED and settings.RATE_LIMIT_FAIL_OPEN:
-        raise ValueError(
-            "RATE_LIMIT_FAIL_OPEN is True in production. "
-            "This allows requests when Redis is unavailable, which violates security requirements. "
-            "Set RATE_LIMIT_FAIL_OPEN=False for fail-closed behavior."
-        )
-
-    # Validate required infrastructure URLs
-    if not settings.POSTGRES_URL or "localhost" in settings.POSTGRES_URL:
-        raise ValueError("POSTGRES_URL must be configured for production without localhost.")
-
-    if not settings.MONGODB_URL or "localhost" in settings.MONGODB_URL:
-        raise ValueError("MONGODB_URL must be configured for production without localhost.")
-
-    if not settings.REDIS_URL or "localhost" in settings.REDIS_URL:
-        raise ValueError("REDIS_URL must be configured for production without localhost.")
-
-    if not settings.QDRANT_URL or "localhost" in settings.QDRANT_URL:
-        raise ValueError("QDRANT_URL must be configured for production without localhost.")
-
-    # Validate API keys are set for production
-    if not settings.GROQ_API_KEY and not settings.GEMINI_API_KEY:
-        raise ValueError(
-            "At least one LLM API key (GROQ_API_KEY or GEMINI_API_KEY) must be set for production."
-        )
-
-    # Validate that API keys are not placeholder values (config.py handles this, but double-check)
-    groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
-    gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
-
-    if "test_" in groq_key.lower() or "replace_before_production" in groq_key.lower():
-        raise ValueError(
-            "GROQ_API_KEY appears to be a test/placeholder value. Use a real production API key."
-        )
-
-    if "test_" in gemini_key.lower() or "replace_before_production" in gemini_key.lower():
-        raise ValueError(
-            "GEMINI_API_KEY appears to be a test/placeholder value. Use a real production API key."
-        )
-
-    # Run the comprehensive production secrets validation from config
-    settings._validate_production_secrets()
+# Run configuration validation at application startup for production/staging
+# This ensures production-safe configuration is enforced
+if settings.APP_ENV in ["production", "staging"]:
+    try:
+        settings.validate_embedding_config()
+        settings._validate_production_secrets()
+        settings._validate_environment_contracts()
+    except ValueError as e:
+        # Re-raise configuration errors as they should fail startup
+        raise ValueError(f"Configuration validation failed: {e}")
 
 app.add_middleware(
     CORSMiddleware,

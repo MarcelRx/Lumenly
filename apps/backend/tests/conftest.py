@@ -7,6 +7,8 @@ from sqlalchemy import select
 
 # Set required environment variables for testing before importing app modules
 os.environ.setdefault("APP_ENV", "development")  # Use development for testing
+os.environ.setdefault("APP_DEBUG", "true")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "true")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-32bytes-min")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-for-testing-32bytes-min")
 os.environ.setdefault("POSTGRES_URL", "postgresql+asyncpg://lumenly:lumenly_secure_password_32chars@localhost:5433/lumenly_test")

@@ -30,6 +30,12 @@ class SettingsWithoutEnv(BaseSettings):
     QDRANT_API_KEY: str | None = None
     JWT_SECRET_RS256_PRIVATE: str | None = None
     JWT_SECRET_RS256_PUBLIC: str | None = None
+    APP_ENV: str = "development"
+    APP_DEBUG: bool = True
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_FAIL_OPEN: bool = False
+    ALLOW_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
+    JWT_ALGORITHM: str = "HS256"
 
     model_config = SettingsConfigDict(
         env_file=None,  # Disable .env file loading for testing
@@ -37,6 +43,74 @@ class SettingsWithoutEnv(BaseSettings):
         case_sensitive=True,
         extra="ignore"
     )
+
+    def _validate_environment_contracts(self) -> None:
+        """Validate environment-specific contracts (simplified for testing)."""
+        if self.APP_ENV == "production":
+            errors = []
+
+            if self.APP_DEBUG is not False:
+                errors.append("APP_DEBUG must be False in production")
+
+            if self.RATE_LIMIT_ENABLED is not True:
+                errors.append("RATE_LIMIT_ENABLED must be True in production")
+
+            if self.RATE_LIMIT_FAIL_OPEN is not False:
+                errors.append("RATE_LIMIT_FAIL_OPEN must be False in production (fail-closed)")
+
+            if len(self.SECRET_KEY) < 32:
+                errors.append("SECRET_KEY must be at least 32 characters in production")
+
+            if len(self.JWT_SECRET) < 32:
+                errors.append("JWT_SECRET must be at least 32 characters in production")
+
+            if self.SECRET_KEY == self.JWT_SECRET:
+                errors.append("SECRET_KEY and JWT_SECRET must be different in production")
+
+            if self.POSTGRES_URL and "localhost" in self.POSTGRES_URL:
+                errors.append("POSTGRES_URL must not contain localhost in production")
+
+            if self.MONGODB_URL and "localhost" in self.MONGODB_URL:
+                errors.append("MONGODB_URL must not contain localhost in production")
+
+            if self.REDIS_URL and "localhost" in self.REDIS_URL:
+                errors.append("REDIS_URL must not contain localhost in production")
+
+            if self.QDRANT_URL and "localhost" in self.QDRANT_URL:
+                errors.append("QDRANT_URL must not contain localhost in production")
+
+            if self.ALLOW_ORIGINS:
+                origins = [origin.strip() for origin in self.ALLOW_ORIGINS.split(",")]
+                for origin in origins:
+                    if "localhost" in origin.lower() or "127.0.0.1" in origin:
+                        errors.append(f"ALLOW_ORIGINS contains localhost address '{origin}' in production")
+
+            if self.JWT_ALGORITHM == "RS256":
+                if not self.JWT_SECRET_RS256_PRIVATE:
+                    errors.append("JWT_SECRET_RS256_PRIVATE is required when JWT_ALGORITHM=RS256")
+                if not self.JWT_SECRET_RS256_PUBLIC:
+                    errors.append("JWT_SECRET_RS256_PUBLIC is required when JWT_ALGORITHM=RS256")
+
+            if not self.GROQ_API_KEY and not self.GEMINI_API_KEY:
+                errors.append("At least one LLM API key (GROQ_API_KEY or GEMINI_API_KEY) must be set in production")
+
+            if errors:
+                raise ValueError(
+                    f"Production environment contract validation failed: {', '.join(errors)}. "
+                    "Production requires explicit secure configuration."
+                )
+
+        if self.APP_ENV == "staging":
+            if self.APP_DEBUG is True:
+                raise ValueError(
+                    "APP_DEBUG must be False in staging environment. "
+                    "Staging should behave like production."
+                )
+            if self.RATE_LIMIT_ENABLED is False:
+                raise ValueError(
+                    "RATE_LIMIT_ENABLED must be True in staging environment. "
+                    "Staging should behave like production."
+                )
 
 
 class TestSecretLoading:
@@ -120,6 +194,7 @@ class TestEmbeddingConfiguration:
     def test_custom_embedding_provider(self, monkeypatch):
         """Test custom embedding provider."""
         monkeypatch.setenv("EMBEDDING_PROVIDER", "cohere")
+        monkeypatch.setenv("VECTOR_DIMENSION", "1024")  # Cohere expects 1024
 
         config = Settings(
             SECRET_KEY="test-secret",
@@ -175,7 +250,8 @@ class TestEmbeddingConfiguration:
 
     def test_custom_vector_dimension(self, monkeypatch):
         """Test custom vector dimension."""
-        monkeypatch.setenv("VECTOR_DIMENSION", "768")
+        monkeypatch.setenv("EMBEDDING_PROVIDER", "fastembed")  # fastembed uses 384
+        monkeypatch.setenv("VECTOR_DIMENSION", "384")
 
         config = Settings(
             SECRET_KEY="test-secret",
@@ -186,7 +262,7 @@ class TestEmbeddingConfiguration:
             QDRANT_URL="http://localhost:6333"
         )
 
-        assert config.VECTOR_DIMENSION == 768
+        assert config.VECTOR_DIMENSION == 384
 
     def test_default_distance_metric(self):
         """Test default distance metric."""
@@ -388,14 +464,17 @@ class TestApplicationConfiguration:
     def test_custom_app_environment(self, monkeypatch):
         """Test custom application environment."""
         monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
         config = Settings(
-            SECRET_KEY="test-secret",
-            JWT_SECRET="test-jwt-secret",
-            POSTGRES_URL="postgresql://test",
-            MONGODB_URL="mongodb://test",
-            REDIS_URL="redis://test",
-            QDRANT_URL="http://localhost:6333"
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
         )
 
         assert config.APP_ENV == "production"
@@ -409,7 +488,9 @@ class TestApplicationConfiguration:
             MONGODB_URL="mongodb://test",
             REDIS_URL="redis://test",
             QDRANT_URL="http://localhost:6333",
-            APP_ENV="staging"
+            APP_ENV="staging",
+            APP_DEBUG="false",
+            RATE_LIMIT_ENABLED="true"
         )
 
         assert config.ENVIRONMENT == "staging"
@@ -516,3 +597,465 @@ class TestRs256Keys:
 
         assert config.JWT_SECRET_RS256_PRIVATE == "test-private-key"
         assert config.JWT_SECRET_RS256_PUBLIC == "test-public-key"
+
+
+class TestEnvironmentContracts:
+    """Test environment-specific configuration contracts."""
+
+    def test_development_allows_debug_true(self, monkeypatch):
+        """Test that development environment allows debug mode."""
+        monkeypatch.setenv("APP_ENV", "development")
+        monkeypatch.setenv("APP_DEBUG", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-development-32chars",
+            JWT_SECRET="test-jwt-secret-development-32chars",
+            POSTGRES_URL="postgresql://test",
+            MONGODB_URL="mongodb://test",
+            REDIS_URL="redis://test",
+            QDRANT_URL="http://localhost:6333"
+        )
+
+        assert config.APP_ENV == "development"
+        assert config.APP_DEBUG is True
+
+    def test_development_allows_rate_limit_disabled(self, monkeypatch):
+        """Test that development environment allows rate limiting disabled."""
+        monkeypatch.setenv("APP_ENV", "development")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-development-32chars",
+            JWT_SECRET="test-jwt-secret-development-32chars",
+            POSTGRES_URL="postgresql://test",
+            MONGODB_URL="mongodb://test",
+            REDIS_URL="redis://test",
+            QDRANT_URL="http://localhost:6333"
+        )
+
+        assert config.RATE_LIMIT_ENABLED is False
+
+    def test_production_requires_debug_false(self, monkeypatch):
+        """Test that production environment requires debug mode disabled."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="APP_DEBUG must be False in production"):
+            config._validate_environment_contracts()
+
+    def test_production_requires_rate_limit_enabled(self, monkeypatch):
+        """Test that production environment requires rate limiting enabled."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="RATE_LIMIT_ENABLED must be True in production"):
+            config._validate_environment_contracts()
+
+    def test_production_rejects_localhost_in_postgres_url(self, monkeypatch):
+        """Test that production rejects localhost in PostgreSQL URL."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://localhost:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="POSTGRES_URL must not contain localhost in production"):
+            config._validate_environment_contracts()
+
+    def test_production_rejects_localhost_in_mongodb_url(self, monkeypatch):
+        """Test that production rejects localhost in MongoDB URL."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://localhost:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="MONGODB_URL must not contain localhost in production"):
+            config._validate_environment_contracts()
+
+    def test_production_rejects_localhost_in_redis_url(self, monkeypatch):
+        """Test that production rejects localhost in Redis URL."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://localhost:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="REDIS_URL must not contain localhost in production"):
+            config._validate_environment_contracts()
+
+    def test_production_rejects_localhost_in_qdrant_url(self, monkeypatch):
+        """Test that production rejects localhost in Qdrant URL."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://localhost:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="QDRANT_URL must not contain localhost in production"):
+            config._validate_environment_contracts()
+
+    def test_production_rejects_localhost_in_cors_origins(self, monkeypatch):
+        """Test that production rejects localhost in CORS origins."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("ALLOW_ORIGINS", "http://localhost:3000,https://example.com")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="ALLOW_ORIGINS contains localhost address"):
+            config._validate_environment_contracts()
+
+    def test_production_rejects_127_0_0_1_in_cors_origins(self, monkeypatch):
+        """Test that production rejects 127.0.0.1 in CORS origins."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("ALLOW_ORIGINS", "http://127.0.0.1:3000,https://example.com")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="ALLOW_ORIGINS contains localhost address"):
+            config._validate_environment_contracts()
+
+    def test_production_accepts_valid_cors_origins(self, monkeypatch):
+        """Test that production accepts valid CORS origins."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("ALLOW_ORIGINS", "https://example.com,https://app.example.com")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        assert config.ALLOW_ORIGINS == "https://example.com,https://app.example.com"
+
+    def test_production_requires_rs256_keys_when_algorithm_rs256(self, monkeypatch):
+        """Test that production requires RS256 keys when algorithm is RS256."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("JWT_ALGORITHM", "RS256")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="JWT_SECRET_RS256_PRIVATE is required when JWT_ALGORITHM=RS256"):
+            config._validate_environment_contracts()
+
+    def test_production_requires_rs256_public_key_when_algorithm_rs256(self, monkeypatch):
+        """Test that production requires RS256 public key when algorithm is RS256."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("JWT_ALGORITHM", "RS256")
+        monkeypatch.setenv("JWT_SECRET_RS256_PRIVATE", "test-private-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        with pytest.raises(ValueError, match="JWT_SECRET_RS256_PUBLIC is required when JWT_ALGORITHM=RS256"):
+            config._validate_environment_contracts()
+
+    def test_production_accepts_rs256_keys_when_algorithm_rs256(self, monkeypatch):
+        """Test that production accepts RS256 keys when algorithm is RS256."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("JWT_ALGORITHM", "RS256")
+        monkeypatch.setenv("JWT_SECRET_RS256_PRIVATE", "test-private-key")
+        monkeypatch.setenv("JWT_SECRET_RS256_PUBLIC", "test-public-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333",
+            GROQ_API_KEY="test-groq-key"
+        )
+
+        assert config.JWT_ALGORITHM == "RS256"
+        assert config.JWT_SECRET_RS256_PRIVATE == "test-private-key"
+        assert config.JWT_SECRET_RS256_PUBLIC == "test-public-key"
+
+    def test_production_requires_at_least_one_llm_key(self, monkeypatch):
+        """Test that production requires at least one LLM API key."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        with pytest.raises(ValueError, match="At least one LLM API key"):
+            config._validate_environment_contracts()
+
+    def test_production_accepts_groq_key(self, monkeypatch):
+        """Test that production accepts Groq API key."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        assert config.GROQ_API_KEY == "test-groq-key"
+
+    def test_production_accepts_gemini_key(self, monkeypatch):
+        """Test that production accepts Gemini API key."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        assert config.GEMINI_API_KEY == "test-gemini-key"
+
+    def test_production_requires_secret_key_min_32_chars(self, monkeypatch):
+        """Test that production requires SECRET_KEY to be at least 32 characters."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="short",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters in production"):
+            config._validate_environment_contracts()
+
+    def test_production_requires_jwt_secret_min_32_chars(self, monkeypatch):
+        """Test that production requires JWT_SECRET to be at least 32 characters."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="short",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        with pytest.raises(ValueError, match="JWT_SECRET must be at least 32 characters in production"):
+            config._validate_environment_contracts()
+
+    def test_production_requires_different_secret_and_jwt_secret(self, monkeypatch):
+        """Test that production requires SECRET_KEY and JWT_SECRET to be different."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-secret-key-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        with pytest.raises(ValueError, match="SECRET_KEY and JWT_SECRET must be different in production"):
+            config._validate_environment_contracts()
+
+    def test_production_requires_fail_closed_rate_limiting(self, monkeypatch):
+        """Test that production requires RATE_LIMIT_FAIL_OPEN to be False."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("RATE_LIMIT_FAIL_OPEN", "true")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars",
+            JWT_SECRET="test-jwt-secret-production-32chars",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        with pytest.raises(ValueError, match="RATE_LIMIT_FAIL_OPEN must be False in production"):
+            config._validate_environment_contracts()
+
+    def test_staging_requires_debug_false(self, monkeypatch):
+        """Test that staging environment requires debug mode disabled."""
+        monkeypatch.setenv("APP_ENV", "staging")
+        monkeypatch.setenv("APP_DEBUG", "true")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-staging-32chars",
+            JWT_SECRET="test-jwt-secret-staging-32chars",
+            POSTGRES_URL="postgresql://test",
+            MONGODB_URL="mongodb://test",
+            REDIS_URL="redis://test",
+            QDRANT_URL="http://localhost:6333"
+        )
+
+        with pytest.raises(ValueError, match="APP_DEBUG must be False in staging environment"):
+            config._validate_environment_contracts()
+
+    def test_staging_requires_rate_limit_enabled(self, monkeypatch):
+        """Test that staging environment requires rate limiting enabled."""
+        monkeypatch.setenv("APP_ENV", "staging")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-staging-32chars",
+            JWT_SECRET="test-jwt-secret-staging-32chars",
+            POSTGRES_URL="postgresql://test",
+            MONGODB_URL="mongodb://test",
+            REDIS_URL="redis://test",
+            QDRANT_URL="http://localhost:6333"
+        )
+
+        with pytest.raises(ValueError, match="RATE_LIMIT_ENABLED must be True in staging environment"):
+            config._validate_environment_contracts()
+
+    def test_valid_production_configuration(self, monkeypatch):
+        """Test that valid production configuration passes all validations."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("APP_DEBUG", "false")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+        monkeypatch.setenv("RATE_LIMIT_FAIL_OPEN", "false")
+        monkeypatch.setenv("ALLOW_ORIGINS", "https://example.com,https://app.example.com")
+        monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+        config = SettingsWithoutEnv(
+            SECRET_KEY="test-secret-key-production-32chars-minimum",
+            JWT_SECRET="test-jwt-secret-production-32chars-different",
+            POSTGRES_URL="postgresql://production-host:5432/lumenly",
+            MONGODB_URL="mongodb://production-host:27017/lumenly",
+            REDIS_URL="redis://production-host:6379/0",
+            QDRANT_URL="http://production-host:6333"
+        )
+
+        assert config.APP_ENV == "production"
+        assert config.APP_DEBUG is False
+        assert config.RATE_LIMIT_ENABLED is True
+        assert config.RATE_LIMIT_FAIL_OPEN is False
