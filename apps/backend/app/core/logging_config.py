@@ -45,13 +45,17 @@ class SecretRedactingFormatter(logging.Formatter):
     """
 
     SENSITIVE_PATTERNS = [
+        # Handle Bearer tokens - MUST come first to catch Authorization: Bearer <token> before authorization pattern
+        # Enhanced pattern to handle JWT tokens (with dots), base64, and other token formats
+        (r"Bearer\s+[A-Za-z0-9\._\-+/=]+", "Bearer [REDACTED]"),
         (r'password["\s]*[:=]["\s]*[^\s"]+', "password=[REDACTED]"),
         (r'api[_-]?key["\s]*[:=]["\s]*[^\s"]+', "api_key=[REDACTED]"),
         (r'jwt["\s]*[:=]["\s]*[^\s"]+', "jwt=[REDACTED]"),
         (r'token["\s]*[:=]["\s]*[^\s"]+', "token=[REDACTED]"),
-        (r'authorization["\s]*[:=]["\s]*[^\s"]+', "authorization=[REDACTED]"),
+        # Authorization pattern - handle Authorization headers with values
+        # This catches authorization=anything (after Bearer pattern handles Bearer tokens)
+        (r'authorization["\s]*[:=]["\s]*[^\s]+', "authorization=[REDACTED]"),
         (r'secret["\s]*[:=]["\s]*[^\s"]+', "secret=[REDACTED]"),
-        (r"Bearer\s+[A-Za-z0-9\._-]+", "Bearer [REDACTED]"),
         (r"sk-[a-zA-Z0-9]{20,}", "sk-[REDACTED]"),  # OpenAI-style API keys
         (r"AIza[a-zA-Z0-9_-]{35}", "AIza[REDACTED]"),  # Google-style API keys
         # URL-based credential patterns - specifically match and redact credentials in URLs

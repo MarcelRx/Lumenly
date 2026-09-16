@@ -107,6 +107,35 @@ class TestSecretLeakageRegression:
         # Should be redacted
         assert "[REDACTED]" in log_output or "Bearer [REDACTED]" in log_output
 
+    def test_bearer_token_complete_redaction(self):
+        """Test that Bearer tokens are completely redacted with no token leakage."""
+        # Unique fake Bearer token for this specific test
+        unique_bearer_token = "Bearer abc123DEF456ghi789JKL012mno345pqr678"
+
+        self.logger.info(f"Authorization: {unique_bearer_token}")
+
+        log_output = self.get_log_output()
+
+        # The complete token must not appear in the output
+        assert unique_bearer_token not in log_output, "Complete Bearer token appeared in logs"
+
+        # The token value (without "Bearer" prefix) must not appear
+        token_value = unique_bearer_token.replace("Bearer ", "")
+        assert token_value not in log_output, "Bearer token value appeared in logs"
+
+        # Token fragments must not appear
+        assert "abc123DEF456" not in log_output, "Token fragment appeared in logs"
+        assert "ghi789JKL012" not in log_output, "Token fragment appeared in logs"
+
+        # Should be redacted with proper marker
+        assert "[REDACTED]" in log_output, "Redaction marker not found"
+
+        # The token must not appear after the redaction marker
+        if "[REDACTED]" in log_output:
+            parts = log_output.split("[REDACTED]")
+            for part in parts:
+                assert token_value not in part, f"Token value found after redaction marker in: {part}"
+
     def test_database_url_password_not_logged(self):
         """Test that database URL password is not logged."""
         self.logger.info(f"Database URL: {self.FAKE_DATABASE_URL}")
