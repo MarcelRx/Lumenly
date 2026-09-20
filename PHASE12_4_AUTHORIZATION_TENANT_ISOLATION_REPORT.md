@@ -394,10 +394,10 @@ These are intentional design choices or feature gaps, not vulnerabilities:
 | Runtime tenant isolation verified                   | ✅     | Section: Runtime Verification                                         |
 | Full local regression passes (security tests)       | ✅     | 801 passed, 1 failed (performance), 1 skipped (intentional), 0 errors |
 | Fresh GitHub Actions run                            | ⏳     | Triggered by commit 19bbaa6 (pending)                                 |
-| Security scan passes                                | ⏳     | Pending after commit 19bbaa6                                          |
-| Docker build passes                                 | ⏳     | Pending after commit 19bbaa6                                          |
+| Security scan passes                                | ⏳     | Pending after commit f365a5c                                          |
+| Docker build passes                                 | ⏳     | Pending after commit f365a5c                                          |
 | Final report contains exact evidence                | ✅     | This document                                                         |
-| Working tree is clean                               | ✅     | Clean after commit 19bbaa6                                            |
+| Working tree is clean                               | ✅     | Clean after commit b06c406                                            |
 
 ---
 
