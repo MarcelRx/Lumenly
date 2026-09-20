@@ -41,10 +41,8 @@ async def get_current_user(
         user_id: str | None = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-        token_data = TokenData(
-            id=user_id,
-            email=payload.get("email"),
-        )
+        # Only extract user_id from token - email and role must come from database
+        token_data = TokenData(id=user_id)
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

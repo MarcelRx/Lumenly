@@ -33,5 +33,4 @@ class UserResponse(BaseModel):
 
 
 class TokenData(BaseModel):
-    email: Optional[EmailStr] = None
     id: Optional[str] = None

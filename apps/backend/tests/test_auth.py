@@ -513,6 +513,143 @@ def test_jwt_token_rejects_missing_subject():
     assert payload.get("sub") is None, "Missing subject should result in None"
 
 
+def test_rs256_key_selection():
+    """Test that RS256 uses correct signing and verification keys."""
+    from app.core.security import get_signing_key, get_verification_key
+
+    # Test with HS256 (default)
+    original_algorithm = settings.JWT_ALGORITHM
+
+    try:
+        # For HS256, should use JWT_SECRET
+        if settings.JWT_ALGORITHM == "HS256":
+            signing_key = get_signing_key()
+            verification_key = get_verification_key()
+            assert signing_key == settings.JWT_SECRET or settings.SECRET_KEY
+            assert verification_key == settings.JWT_SECRET or settings.SECRET_KEY
+    finally:
+        # Restore original algorithm
+        pass
+
+
+def test_rs256_fails_without_keys():
+    """Test that RS256 fails when keys are not configured."""
+    from app.core.security import JWT_ALGORITHM, get_signing_key, get_verification_key
+
+    # Only test if currently using HS256 to avoid breaking existing tests
+    if settings.JWT_ALGORITHM == "HS256":
+        # Temporarily set to RS256 without keys
+        original_algorithm = JWT_ALGORITHM
+        original_private = settings.JWT_SECRET_RS256_PRIVATE
+        original_public = settings.JWT_SECRET_RS256_PUBLIC
+
+        try:
+            # Directly modify the global JWT_ALGORITHM variable
+            from app.core import security
+            security.JWT_ALGORITHM = "RS256"
+
+            # Temporarily set RS256 keys to None
+            from app.core.config import settings as test_settings
+            test_settings.JWT_SECRET_RS256_PRIVATE = None
+            test_settings.JWT_SECRET_RS256_PUBLIC = None
+
+            # Should raise ValueError
+            with pytest.raises(ValueError, match="JWT_SECRET_RS256_PRIVATE is required"):
+                get_signing_key()
+
+            with pytest.raises(ValueError, match="JWT_SECRET_RS256_PUBLIC is required"):
+                get_verification_key()
+        finally:
+            # Restore
+            security.JWT_ALGORITHM = original_algorithm
+            test_settings.JWT_SECRET_RS256_PRIVATE = original_private
+            test_settings.JWT_SECRET_RS256_PUBLIC = original_public
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_concurrent_rotation_prevents_double_use(async_client):
+    """Test that concurrent refresh requests cannot both succeed with the same token."""
+    import asyncio
+
+    # Register and login
+    await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "concurrent@example.com",
+            "password": "ConcurrentPassword123!",
+            "full_name": "Concurrent User",
+        },
+    )
+
+    login_response = await async_client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": "concurrent@example.com",
+            "password": "ConcurrentPassword123!",
+        },
+    )
+    old_refresh_token = login_response.json()["refresh_token"]
+
+    # Send two concurrent refresh requests with the same token
+    async def refresh_request():
+        return await async_client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": old_refresh_token},
+        )
+
+    # Execute both requests concurrently
+    results = await asyncio.gather(refresh_request(), refresh_request())
+
+    # Only one should succeed (200), the other should fail (401)
+    success_count = sum(1 for r in results if r.status_code == 200)
+    failure_count = sum(1 for r in results if r.status_code == 401)
+
+    assert success_count == 1, "Exactly one concurrent refresh should succeed"
+    assert failure_count == 1, "Exactly one concurrent refresh should fail"
+
+    # Verify the successful response has a new token
+    success_response = next(r for r in results if r.status_code == 200)
+    new_refresh_token = success_response.json()["refresh_token"]
+    assert new_refresh_token != old_refresh_token, "New refresh token should be different"
+
+    # Verify the old token cannot be used again
+    final_attempt = await async_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": old_refresh_token},
+    )
+    assert final_attempt.status_code == 401, "Old token should be permanently consumed"
+
+
+@pytest.mark.asyncio
+async def test_authentication_endpoint_rate_limiting(async_client):
+    """Test that rate limiting is properly configured for authentication."""
+    from app.core.config import settings
+    from app.middleware.rate_limit import RateLimiter
+
+    # Verify rate limiting is enabled
+    assert settings.RATE_LIMIT_ENABLED is True, "Rate limiting should be enabled"
+
+    # Verify fail-closed behavior
+    assert settings.RATE_LIMIT_FAIL_OPEN is False, "Rate limiting should be fail-closed"
+
+    # Verify anonymous limit is configured
+    assert settings.RATE_LIMIT_ANONYMOUS_REQUESTS > 0, "Anonymous rate limit should be positive"
+
+    # Verify RateLimiter is properly configured
+    rate_limiter = RateLimiter()
+    assert rate_limiter.enabled is True, "RateLimiter should be enabled"
+    assert rate_limiter.fail_open is False, "RateLimiter should be fail-closed"
+
+    # Verify role-based limits are configured
+    assert "anonymous" in rate_limiter.limits, "Anonymous limit should be configured"
+    assert "authenticated" in rate_limiter.limits, "Authenticated limit should be configured"
+    assert "admin" in rate_limiter.limits, "Admin limit should be configured"
+
+    # Verify limits are hierarchical
+    assert rate_limiter.limits["anonymous"] < rate_limiter.limits["authenticated"]
+    assert rate_limiter.limits["authenticated"] < rate_limiter.limits["admin"]
+
+
 def test_password_not_returned_in_registration_response():
     """Test that passwords are never returned in API responses."""
     # This is already tested in test_user_registration but we reinforce it

@@ -12,6 +12,23 @@ from app.db.redis import get_redis_client
 JWT_SECRET = settings.JWT_SECRET or settings.SECRET_KEY
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 
+# Select appropriate key based on algorithm
+def get_signing_key():
+    """Get the appropriate signing key based on JWT algorithm."""
+    if JWT_ALGORITHM == "RS256":
+        if not settings.JWT_SECRET_RS256_PRIVATE:
+            raise ValueError("JWT_SECRET_RS256_PRIVATE is required when JWT_ALGORITHM=RS256")
+        return settings.JWT_SECRET_RS256_PRIVATE
+    return JWT_SECRET
+
+def get_verification_key():
+    """Get the appropriate verification key based on JWT algorithm."""
+    if JWT_ALGORITHM == "RS256":
+        if not settings.JWT_SECRET_RS256_PUBLIC:
+            raise ValueError("JWT_SECRET_RS256_PUBLIC is required when JWT_ALGORITHM=RS256")
+        return settings.JWT_SECRET_RS256_PUBLIC
+    return JWT_SECRET
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(
@@ -45,7 +62,8 @@ def create_access_token(
         payload["role"] = role
     if extra_claims:
         payload.update(extra_claims)
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    signing_key = get_signing_key()
+    return jwt.encode(payload, signing_key, algorithm=JWT_ALGORITHM)
 
 
 def create_refresh_token() -> str:
@@ -67,8 +85,33 @@ async def store_refresh_token(
     )
 
 
+async def verify_and_consume_refresh_token(refresh_token: str) -> str | None:
+    """
+    Atomically verify and consume (delete) a refresh token.
+    Returns user_id if token was valid and consumed, None otherwise.
+    This prevents race conditions where concurrent refresh requests could both succeed.
+    """
+    redis_client = get_redis_client()
+    key = f"refresh_token:{refresh_token}"
+
+    # Use Lua script for atomic get-and-delete
+    # This ensures only one request can successfully consume the token
+    lua_script = """
+    local value = redis.call('GET', KEYS[1])
+    if value then
+        redis.call('DEL', KEYS[1])
+        return value
+    else
+        return nil
+    end
+    """
+
+    result = await redis_client.eval(lua_script, 1, key)
+    return result.decode("utf-8") if result else None
+
+
 async def verify_refresh_token(refresh_token: str) -> str | None:
-    """Verify refresh token exists in Redis and return user_id."""
+    """Verify refresh token exists in Redis and return user_id (non-consuming)."""
     redis_client = get_redis_client()
     key = f"refresh_token:{refresh_token}"
     user_id = await redis_client.get(key)
@@ -84,4 +127,5 @@ async def revoke_refresh_token(refresh_token: str) -> bool:
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    verification_key = get_verification_key()
+    return jwt.decode(token, verification_key, algorithms=[JWT_ALGORITHM])

@@ -19,8 +19,8 @@ from app.core.security import (
     get_password_hash,
     revoke_refresh_token,
     store_refresh_token,
+    verify_and_consume_refresh_token,
     verify_password,
-    verify_refresh_token,
 )
 from app.db.postgres import get_postgres_session
 from app.models.user import User, UserRole
@@ -139,7 +139,8 @@ async def refresh(
     session: Annotated[AsyncSession, Depends(get_postgres_session)],
 ) -> Token:
     try:
-        user_id = await verify_refresh_token(refresh_request.refresh_token)
+        # Atomically verify and consume the refresh token to prevent race conditions
+        user_id = await verify_and_consume_refresh_token(refresh_request.refresh_token)
 
         if user_id is None:
             auth_token_refresh_total.labels(result="invalid_token").inc()
@@ -173,8 +174,7 @@ async def refresh(
         )
         new_refresh_token = create_refresh_token()
 
-        # Revoke old refresh token and store new one
-        await revoke_refresh_token(refresh_request.refresh_token)
+        # Store new refresh token (old one already consumed atomically)
         await store_refresh_token(str(user.id), new_refresh_token)
 
         auth_token_refresh_total.labels(result="success").inc()
