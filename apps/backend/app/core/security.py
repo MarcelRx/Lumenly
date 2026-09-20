@@ -128,4 +128,9 @@ async def revoke_refresh_token(refresh_token: str) -> bool:
 
 def decode_access_token(token: str) -> dict[str, Any]:
     verification_key = get_verification_key()
-    return jwt.decode(token, verification_key, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(
+        token,
+        verification_key,
+        algorithms=[JWT_ALGORITHM],
+        options={"require": ["exp", "sub"]},
+    )

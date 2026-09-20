@@ -508,9 +508,54 @@ def test_jwt_token_rejects_missing_subject():
         algorithm=settings.JWT_ALGORITHM,
     )
 
-    # Decode will succeed but subject will be None
-    payload = decode_access_token(token_without_sub)
-    assert payload.get("sub") is None, "Missing subject should result in None"
+    # Decode should fail due to missing required sub claim
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token_without_sub)
+
+
+def test_jwt_token_rejects_missing_exp():
+    """Test that JWT tokens without expiration claim are rejected."""
+    payload_without_exp = {
+        "sub": "test-user",
+        "email": "test@example.com",
+        "role": "user",
+    }
+
+    token_without_exp = jwt.encode(
+        payload_without_exp,
+        settings.JWT_SECRET or settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+    # Decode should fail due to missing required exp claim
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token_without_exp)
+
+
+@pytest.mark.asyncio
+async def test_jwt_token_rejects_missing_exp_through_auth_path(async_client):
+    """Test that JWT tokens without exp claim are rejected through real auth endpoint."""
+    # Create a syntactically valid, correctly signed JWT without exp claim
+    payload_without_exp = {
+        "sub": "test-user",
+        "email": "test@example.com",
+        "role": "user",
+    }
+
+    token_without_exp = jwt.encode(
+        payload_without_exp,
+        settings.JWT_SECRET or settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+    # Attempt to access protected endpoint with token missing exp
+    response = await async_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_without_exp}"},
+    )
+
+    # Should be rejected with 401
+    assert response.status_code == 401
 
 
 def test_rs256_key_selection():
