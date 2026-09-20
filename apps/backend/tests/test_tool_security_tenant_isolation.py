@@ -530,11 +530,12 @@ async def test_mutation_tools_enforce_ownerhip():
     - User A modifies User B resource → denied
 
     Note: Current tools are read-only, but this test framework
-    is ready for future mutation tools.
+    is ready for future mutation tools. When mutation tools are added,
+    this test should be implemented to verify cross-tenant isolation.
     """
     # Currently no mutation tools exist in the registry
-    # This test is a placeholder for when mutation tools are added
-    pass
+    # This test is deliberately skipped until mutation tools are implemented
+    pytest.skip("No mutation tools currently exist in registry")
 
 
 # ============================================================================

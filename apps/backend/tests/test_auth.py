@@ -695,28 +695,7 @@ async def test_authentication_endpoint_rate_limiting(async_client):
     assert rate_limiter.limits["authenticated"] < rate_limiter.limits["admin"]
 
 
-def test_password_not_returned_in_registration_response():
-    """Test that passwords are never returned in API responses."""
-    # This is already tested in test_user_registration but we reinforce it
-    # The response should never contain hashed_password field
-    # This is verified by existing test line 29: assert "hashed_password" not in data
-    pass
 
-
-def test_password_not_returned_in_login_response():
-    """Test that passwords are not returned in login response."""
-    # Login response should only contain tokens, not password data
-    # This is implicitly tested by test_user_login_success which checks for access_token and refresh_token
-    pass
-
-
-def test_authentication_error_messages_are_generic():
-    """Test that authentication errors don't reveal sensitive information."""
-    # Invalid password and nonexistent user should return same error message
-    # This prevents user enumeration
-    # Tested in test_user_login_invalid_password and test_user_login_nonexistent_user
-    # Both return "Incorrect email or password" - preventing user enumeration
-    pass
 
 
 def test_refresh_token_cannot_be_used_as_access_token():
