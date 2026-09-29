@@ -158,6 +158,13 @@ async def cleanup_qdrant(setup_databases):
 
 
 @pytest.fixture(scope="function")
+def get_qdrant_client(setup_databases):
+    """Provide a real Qdrant client for testing."""
+    from app.db.qdrant import get_qdrant_client as _get_qdrant_client
+    return _get_qdrant_client()
+
+
+@pytest.fixture(scope="function")
 async def async_client(setup_databases):
     """Create an async HTTP client using the test app with pre-initialized databases."""
     # Create a test app without lifespan (databases already initialized by setup_databases)
