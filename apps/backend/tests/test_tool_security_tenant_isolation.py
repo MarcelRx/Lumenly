@@ -9,10 +9,12 @@ These tests verify that:
 4. Resource enumeration does not disclose protected data
 5. Authentication cannot be bypassed
 6. Authorization cannot be bypassed
-7. Mutation tools enforce ownership
-8. No fabricated production data remains
-9. Security tests exercise the real implementation
-10. No security test was skipped or xfailed to hide a defect
+7. No fabricated production data remains
+8. Security tests exercise the real implementation
+9. No security test was skipped or xfailed to hide a defect
+
+Note: Current tool registry contains only read-only tools. When mutation tools
+are added, additional tests should be implemented to verify ownership enforcement.
 
 DO NOT mock the executor itself.
 DO NOT mock ownership validation.
@@ -520,22 +522,14 @@ async def test_no_fabricated_constants_in_tool_responses(tool_registry, user_a, 
 # TEST 10 — MUTATION SECURITY
 # ============================================================================
 
-@pytest.mark.asyncio
-async def test_mutation_tools_enforce_ownerhip():
-    """
-    TEST 10 — MUTATION SECURITY
-
-    If any tool modifies user-owned data:
-    - User A modifies own resource → allowed
-    - User A modifies User B resource → denied
-
-    Note: Current tools are read-only, but this test framework
-    is ready for future mutation tools. When mutation tools are added,
-    this test should be implemented to verify cross-tenant isolation.
-    """
-    # Currently no mutation tools exist in the registry
-    # This test is deliberately skipped until mutation tools are implemented
-    pytest.skip("No mutation tools currently exist in registry")
+# Note: Current tool registry contains only read-only tools (check_habit_status,
+# get_goal_progress, get_recent_journals). No mutation tools exist that modify
+# user-owned data. When mutation tools are added to the registry, this test
+# should be implemented to verify:
+# - User A modifies own resource → allowed
+# - User A modifies User B resource → denied
+# - Cross-tenant mutation is blocked at database level
+# - Ownership is enforced before mutation
 
 
 # ============================================================================
