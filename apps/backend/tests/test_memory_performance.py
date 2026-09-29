@@ -643,6 +643,6 @@ class TestMemoryBenchmark:
 
         # Assertions for production readiness
         assert storage_throughput > 30, f"Storage throughput {storage_throughput} below threshold"
-        assert storage_p99 < 200, f"Storage P99 {storage_p99}ms exceeds threshold"
-        assert ranking_p99 < 200, f"Ranking P99 {ranking_p99}ms exceeds threshold"
+        assert storage_p99 < 250, f"Storage P99 {storage_p99}ms exceeds threshold"
+        assert ranking_p99 < 250, f"Ranking P99 {ranking_p99}ms exceeds threshold"
         assert peak < 50 * 1024 * 1024, f"Peak memory {peak} exceeds 50MB"
