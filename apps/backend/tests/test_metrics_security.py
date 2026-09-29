@@ -297,7 +297,11 @@ class TestMetricsNetworkInformation:
 
         # Check for internal URL patterns
         # Allow localhost in development but check for internal IPs
-        internal_patterns = ["192.168.", "10.", "172.16."]
+        # Use more specific patterns to avoid false positives with decimal numbers
+        internal_patterns = ["192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
+                            "172.20.", "172.21.", "172.22.", "172.23.", "172.24.",
+                            "172.25.", "172.26.", "172.27.", "172.28.", "172.29.",
+                            "172.30.", "172.31."]
         for pattern in internal_patterns:
             # Pattern might appear in comments
             if pattern in content:
@@ -308,6 +312,20 @@ class TestMetricsNetworkInformation:
                         parts = line.split()
                         if len(parts) > 1 and pattern in parts[-1]:
                             assert False, f"Internal network pattern in metric value: {line}"
+
+        # For 10.x.x.x, use a more specific pattern to avoid matching decimal numbers
+        lines = content.split('\n')
+        for line in lines:
+            if not line.strip().startswith('#'):
+                # Check for 10.x.x.x pattern (not just 10. in a decimal)
+                import re
+                # Match 10. followed by 1-3 digits, dot, 1-3 digits, dot, 1-3 digits
+                ten_pattern = r'\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
+                if re.search(ten_pattern, line):
+                    # Check if it's in a value
+                    parts = line.split()
+                    if len(parts) > 1 and re.search(ten_pattern, parts[-1]):
+                        assert False, f"Internal network pattern in metric value: {line}"
 
     def test_metrics_no_dns_names(self, client: TestClient):
         """Test that metrics do not expose internal DNS names."""
