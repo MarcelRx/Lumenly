@@ -327,7 +327,7 @@ class TestMemoryScaling:
     """Test memory system scaling characteristics."""
 
     @pytest.mark.asyncio
-    async def test_linear_scaling_storage(self):
+    async def test_concurrent_storage_throughput(self):
         """Test that concurrent storage throughput scales efficiently."""
         storage = Mock(spec=MultiBackendMemoryStorage)
 
