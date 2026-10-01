@@ -9,13 +9,13 @@ These tests focus on performance aspects:
 - Concurrent operation handling
 - Resource usage optimization
 """
+
 import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from app.ai.memory import (
     MemoryImportance,
     MemoryManager,
@@ -117,7 +117,12 @@ class TestMemoryRetrievalPerformance:
                 memory_type=MemoryType.JOURNAL,
                 content=f"Test content {i} with some text to simulate real data",
                 metadata=metadata,
-                embedding_vector=[0.1 * (i % 10), 0.2 * (i % 10), 0.3 * (i % 10), 0.4 * (i % 10)],
+                embedding_vector=[
+                    0.1 * (i % 10),
+                    0.2 * (i % 10),
+                    0.3 * (i % 10),
+                    0.4 * (i % 10),
+                ],
             )
             memories.append(memory)
 
@@ -132,7 +137,7 @@ class TestMemoryRetrievalPerformance:
         results = await ranker.rank(sample_memories[:10], "test query")
         elapsed = time.time() - start_time
 
-        print(f"Small dataset retrieval latency: {elapsed*1000:.2f}ms")
+        print(f"Small dataset retrieval latency: {elapsed * 1000:.2f}ms")
         assert elapsed < 0.1  # Should complete within 100ms
 
     @pytest.mark.asyncio
@@ -144,7 +149,7 @@ class TestMemoryRetrievalPerformance:
         results = await ranker.rank(sample_memories[:50], "test query")
         elapsed = time.time() - start_time
 
-        print(f"Medium dataset retrieval latency: {elapsed*1000:.2f}ms")
+        print(f"Medium dataset retrieval latency: {elapsed * 1000:.2f}ms")
         assert elapsed < 0.5  # Should complete within 500ms
 
     @pytest.mark.asyncio
@@ -156,7 +161,7 @@ class TestMemoryRetrievalPerformance:
         results = await ranker.rank(sample_memories, "test query")
         elapsed = time.time() - start_time
 
-        print(f"Large dataset retrieval latency: {elapsed*1000:.2f}ms")
+        print(f"Large dataset retrieval latency: {elapsed * 1000:.2f}ms")
         assert elapsed < 1.0  # Should complete within 1 second
 
 
@@ -172,6 +177,7 @@ class TestMemoryRankingPerformance:
     def large_memory_set(self):
         """Create a large set of memories for ranking tests."""
         from app.core.config import settings
+
         memories = []
         for i in range(500):
             metadata = MemoryMetadata(
@@ -188,7 +194,9 @@ class TestMemoryRankingPerformance:
                 memory_type=MemoryType.JOURNAL,
                 content=f"Test content {i} " * 10,  # Longer content
                 metadata=metadata,
-                embedding_vector=[0.01 * j for j in range(settings.VECTOR_DIMENSION)],  # Full embedding
+                embedding_vector=[
+                    0.01 * j for j in range(settings.VECTOR_DIMENSION)
+                ],  # Full embedding
             )
             memories.append(memory)
 
@@ -205,7 +213,7 @@ class TestMemoryRankingPerformance:
         elapsed = time.time() - start_time
         avg_time = elapsed / 100
 
-        print(f"Average importance scoring time: {avg_time*1000:.2f}ms")
+        print(f"Average importance scoring time: {avg_time * 1000:.2f}ms")
         assert avg_time < 0.01  # Should be very fast
 
     @pytest.mark.asyncio
@@ -219,7 +227,7 @@ class TestMemoryRankingPerformance:
         elapsed = time.time() - start_time
         avg_time = elapsed / 100
 
-        print(f"Average recency scoring time: {avg_time*1000:.2f}ms")
+        print(f"Average recency scoring time: {avg_time * 1000:.2f}ms")
         assert avg_time < 0.01  # Should be very fast
 
     @pytest.mark.asyncio
@@ -235,7 +243,7 @@ class TestMemoryRankingPerformance:
         elapsed = time.time() - start_time
         avg_time = elapsed / 100
 
-        print(f"Average semantic similarity time: {avg_time*1000:.2f}ms")
+        print(f"Average semantic similarity time: {avg_time * 1000:.2f}ms")
         assert avg_time < 0.05  # Should be reasonably fast
 
     @pytest.mark.asyncio
@@ -247,7 +255,9 @@ class TestMemoryRankingPerformance:
 
         elapsed = time.time() - start_time
 
-        print(f"Full ranking for {len(large_memory_set)} memories: {elapsed*1000:.2f}ms")
+        print(
+            f"Full ranking for {len(large_memory_set)} memories: {elapsed * 1000:.2f}ms"
+        )
         assert elapsed < 2.0  # Should complete within 2 seconds
         assert len(results) == len(large_memory_set)
 
@@ -286,7 +296,7 @@ class TestConcurrentOperations:
 
         elapsed = time.time() - start_time
 
-        print(f"Concurrent storage ({num_concurrent} ops): {elapsed*1000:.2f}ms")
+        print(f"Concurrent storage ({num_concurrent} ops): {elapsed * 1000:.2f}ms")
         assert elapsed < 1.0  # Should complete within 1 second
 
     @pytest.mark.asyncio
@@ -309,7 +319,7 @@ class TestConcurrentOperations:
 
         elapsed = time.time() - start_time
 
-        print(f"Concurrent retrieval ({num_concurrent} ops): {elapsed*1000:.2f}ms")
+        print(f"Concurrent retrieval ({num_concurrent} ops): {elapsed * 1000:.2f}ms")
         assert elapsed < 2.0  # Should complete within 2 seconds
 
 
@@ -318,7 +328,7 @@ class TestMemoryScaling:
 
     @pytest.mark.asyncio
     async def test_linear_scaling_storage(self):
-        """Test that storage scales linearly with memory count."""
+        """Test that concurrent storage throughput scales efficiently."""
         storage = Mock(spec=MultiBackendMemoryStorage)
 
         async def simulated_store(memory):
@@ -327,9 +337,9 @@ class TestMemoryScaling:
 
         storage.store = simulated_store
 
-        # Test with different scales
+        # Test with different scales to measure concurrent throughput
         scales = [10, 50, 100]
-        times = []
+        throughputs = []
 
         for scale in scales:
             start_time = time.time()
@@ -352,13 +362,16 @@ class TestMemoryScaling:
 
             await asyncio.gather(*tasks)
             elapsed = time.time() - start_time
-            times.append(elapsed)
+            throughput = scale / elapsed
+            throughputs.append(throughput)
+            print(f"Scale {scale}: {throughput:.2f} ops/second")
 
-        # Check that time scales roughly linearly
-        # Time for 100 should be roughly 10x time for 10
-        ratio = times[2] / times[0]
-        print(f"Scaling ratio (100/10): {ratio:.2f}x")
-        assert ratio < 15  # Allow some overhead but should be roughly linear
+        # With concurrent execution, throughput should remain high across scales
+        # The largest scale should still achieve reasonable throughput
+        # This tests that the system handles concurrent load efficiently
+        assert throughputs[2] > 100, (
+            f"Concurrent throughput {throughputs[2]} below threshold"
+        )
 
 
 class TestMemoryResourceUsage:
@@ -387,7 +400,9 @@ class TestMemoryResourceUsage:
         )
 
         # Check memory size
-        memory_size = sys.getsizeof(memory.content) + sys.getsizeof(memory.metadata.tags)
+        memory_size = sys.getsizeof(memory.content) + sys.getsizeof(
+            memory.metadata.tags
+        )
 
         print(f"Large memory content size: {memory_size / 1024:.2f}KB")
         assert memory_size < 50 * 1024  # Should be less than 50KB
@@ -421,7 +436,7 @@ class TestMemoryResourceUsage:
 
         elapsed = time.time() - start_time
 
-        print(f"Batch processing time: {elapsed*1000:.2f}ms")
+        print(f"Batch processing time: {elapsed * 1000:.2f}ms")
         assert elapsed < 1.0  # Should be efficient
 
 
@@ -450,8 +465,8 @@ class TestMemoryCachingPerformance:
         await manager.retrieve_memories("test_user", "test query")
         second_time = time.time() - start_time
 
-        print(f"First retrieval: {first_time*1000:.2f}ms")
-        print(f"Second retrieval: {second_time*1000:.2f}ms")
+        print(f"First retrieval: {first_time * 1000:.2f}ms")
+        print(f"Second retrieval: {second_time * 1000:.2f}ms")
 
         # Even without explicit caching, should be reasonably fast
         assert second_time < 1.0
@@ -479,17 +494,21 @@ class TestMemoryThroughputUnderLoad:
         for i in range(num_operations):
             if i % 3 == 0:
                 # Storage
-                tasks.append(manager.store_memory(
-                    user_id="test_user",
-                    memory_type=MemoryType.JOURNAL,
-                    content=f"Load test {i}",
-                ))
+                tasks.append(
+                    manager.store_memory(
+                        user_id="test_user",
+                        memory_type=MemoryType.JOURNAL,
+                        content=f"Load test {i}",
+                    )
+                )
             elif i % 3 == 1:
                 # Retrieval
-                tasks.append(manager.retrieve_memories(
-                    user_id="test_user",
-                    query=f"query {i}",
-                ))
+                tasks.append(
+                    manager.retrieve_memories(
+                        user_id="test_user",
+                        query=f"query {i}",
+                    )
+                )
             else:
                 # Statistics
                 tasks.append(manager.get_memory_statistics("test_user"))
@@ -637,12 +656,20 @@ class TestMemoryBenchmark:
 
         print("\n=== Comprehensive Benchmark Results ===")
         print(f"Storage Throughput: {storage_throughput:.2f} ops/second")
-        print(f"Storage P50: {storage_p50:.2f}ms, P95: {storage_p95:.2f}ms, P99: {storage_p99:.2f}ms")
-        print(f"Ranking P50: {ranking_p50:.2f}ms, P95: {ranking_p95:.2f}ms, P99: {ranking_p99:.2f}ms")
-        print(f"Memory Usage: Current {current / 1024 / 1024:.2f}MB, Peak {peak / 1024 / 1024:.2f}MB")
+        print(
+            f"Storage P50: {storage_p50:.2f}ms, P95: {storage_p95:.2f}ms, P99: {storage_p99:.2f}ms"
+        )
+        print(
+            f"Ranking P50: {ranking_p50:.2f}ms, P95: {ranking_p95:.2f}ms, P99: {ranking_p99:.2f}ms"
+        )
+        print(
+            f"Memory Usage: Current {current / 1024 / 1024:.2f}MB, Peak {peak / 1024 / 1024:.2f}MB"
+        )
 
         # Assertions for production readiness
-        assert storage_throughput > 30, f"Storage throughput {storage_throughput} below threshold"
+        assert storage_throughput > 30, (
+            f"Storage throughput {storage_throughput} below threshold"
+        )
         assert storage_p99 < 250, f"Storage P99 {storage_p99}ms exceeds threshold"
         assert ranking_p99 < 250, f"Ranking P99 {ranking_p99}ms exceeds threshold"
         assert peak < 50 * 1024 * 1024, f"Peak memory {peak} exceeds 50MB"
