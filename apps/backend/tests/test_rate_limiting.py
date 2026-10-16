@@ -220,16 +220,25 @@ class TestGetClientIdentifier:
 
     @pytest.mark.asyncio
     async def test_uses_forwarded_header_when_present(self, mock_request):
-        """Test that X-Forwarded-For header is used when present."""
-        mock_request.state.user_id = None
-        mock_request.headers = {"X-Forwarded-For": "203.0.113.195, 70.41.3.18"}
-        mock_request.client.host = "192.168.1.100"
+        """Test that X-Forwarded-For header is used when present and client is trusted proxy."""
+        from app.core.config import settings
 
-        identifier, user_role = await get_client_identifier(mock_request)
+        # Configure localhost as trusted proxy for this test
+        original_trusted = settings.RATE_LIMIT_TRUSTED_PROXIES
+        settings.RATE_LIMIT_TRUSTED_PROXIES = "127.0.0.1"
 
-        # Should use first IP from X-Forwarded-For
-        assert identifier == "203.0.113.195"
-        assert user_role == "anonymous"
+        try:
+            mock_request.state.user_id = None
+            mock_request.headers = {"X-Forwarded-For": "203.0.113.195, 70.41.3.18"}
+            mock_request.client.host = "127.0.0.1"  # Client is trusted proxy
+
+            identifier, user_role = await get_client_identifier(mock_request)
+
+            # Should use first IP from X-Forwarded-For since client is trusted
+            assert identifier == "203.0.113.195"
+            assert user_role == "anonymous"
+        finally:
+            settings.RATE_LIMIT_TRUSTED_PROXIES = original_trusted
 
     @pytest.mark.asyncio
     async def test_fallback_to_unknown_when_no_client_info(self, mock_request):

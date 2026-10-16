@@ -305,12 +305,12 @@ class TestRAGOrchestratorIntegration:
     @pytest.mark.asyncio
     async def test_full_pipeline_with_mock_providers(self):
         """Test full RAG pipeline with mock providers."""
-        from app.ai.llm.interface import LLMResponse, LLMConfig, LLMMessage
+        from app.ai.llm.interface import LLMConfig
         from app.ai.llm.providers import MockLLMProvider
         from app.ai.embeddings.interface import EmbeddingConfig
         from app.ai.embeddings.providers import MockEmbeddingProvider
         from app.ai.memory_engine import MemoryManager, ShortTermMemory, LongTermMemory
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         # Create mock dependencies
         llm_config = LLMConfig(provider="mock", model="mock-model")

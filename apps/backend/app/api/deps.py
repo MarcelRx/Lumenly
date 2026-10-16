@@ -97,34 +97,38 @@ def require_role(allowed_roles: list[UserRole]):
 
 async def get_llm_provider() -> LLMProviderInterface:
     """Dependency to get the LLM provider based on configuration."""
-    # In production, NEVER use mock provider
-    if settings.APP_ENV == "production":
+    # Helper function to check if a key is a placeholder
+    def is_placeholder_key(key: str) -> bool:
+        if not key:
+            return False
+        key_lower = key.lower()
+        return any(
+            pattern in key_lower
+            for pattern in [
+                "test_",
+                "replace_before_production",
+                "do_not_use_in_production",
+                "mock",
+            ]
+        )
+
+    # In test environment, always use mock provider to avoid API calls
+    if settings.APP_ENV == "test":
+        provider_name = "mock"
+        api_key = "mock-key"
+    elif settings.APP_ENV == "production":
+        # In production, NEVER use mock provider
         # Production must use real provider
         groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
         gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
 
-        groq_key_valid = groq_key and len(groq_key) > 20
-        gemini_key_valid = gemini_key and len(gemini_key) > 20
+        groq_key_valid = groq_key and len(groq_key) > 20 and not is_placeholder_key(groq_key)
+        gemini_key_valid = gemini_key and len(gemini_key) > 20 and not is_placeholder_key(gemini_key)
 
-        # Check for placeholder patterns in production
-        def is_placeholder_key(key: str) -> bool:
-            if not key:
-                return False
-            key_lower = key.lower()
-            return any(
-                pattern in key_lower
-                for pattern in [
-                    "test_",
-                    "replace_before_production",
-                    "do_not_use_in_production",
-                    "mock",
-                ]
-            )
-
-        if groq_key_valid and not is_placeholder_key(groq_key):
+        if groq_key_valid:
             provider_name = "groq"
             api_key = groq_key
-        elif gemini_key_valid and not is_placeholder_key(gemini_key):
+        elif gemini_key_valid:
             provider_name = "gemini"
             api_key = gemini_key
         else:
@@ -141,20 +145,6 @@ async def get_llm_provider() -> LLMProviderInterface:
         # Only use real provider if keys are actually set, look real (30+ chars), and are not placeholders
         groq_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else ""
         gemini_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
-
-        def is_placeholder_key(key: str) -> bool:
-            if not key:
-                return False
-            key_lower = key.lower()
-            return any(
-                pattern in key_lower
-                for pattern in [
-                    "test_",
-                    "replace_before_production",
-                    "do_not_use_in_production",
-                    "mock",
-                ]
-            )
 
         if gemini_key and len(gemini_key) >= 30 and not is_placeholder_key(gemini_key):
             provider_name = "gemini"
@@ -182,14 +172,18 @@ async def get_llm_provider() -> LLMProviderInterface:
 
 async def get_embedding_provider() -> EmbeddingProviderInterface:
     """Dependency to get the embedding provider based on configuration."""
-    # Use configured embedding provider from settings
-    provider_name = settings.EMBEDDING_PROVIDER
+    # In test environment, always use mock provider to avoid API calls
+    if settings.APP_ENV == "test":
+        provider_name = "mock"
+    else:
+        # Use configured embedding provider from settings
+        provider_name = settings.EMBEDDING_PROVIDER
 
-    # If no API key is configured for the provider, default to mock
-    if provider_name == "openai" and not settings.OPENAI_API_KEY:
-        provider_name = "mock"
-    elif provider_name == "cohere" and not settings.COHERE_API_KEY:
-        provider_name = "mock"
+        # If no API key is configured for the provider, default to mock
+        if provider_name == "openai" and not settings.OPENAI_API_KEY:
+            provider_name = "mock"
+        elif provider_name == "cohere" and not settings.COHERE_API_KEY:
+            provider_name = "mock"
 
     # Map provider to API key
     api_key_map = {

@@ -13,8 +13,7 @@ All tests are deterministic and use no external APIs.
 """
 import pytest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, AsyncMock, MagicMock
-from typing import List
+from unittest.mock import Mock, AsyncMock
 
 from app.ai.memory import (
     MemoryManager,
@@ -26,8 +25,6 @@ from app.ai.memory import (
     MemorySearchResult,
     MemoryRanker,
     MultiBackendMemoryStorage,
-    MemoryConsolidator,
-    MemoryForgetting,
     MemorySummarizer,
     BehaviorTracker,
 )

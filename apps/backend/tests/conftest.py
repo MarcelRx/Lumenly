@@ -2,13 +2,14 @@
 import os
 
 import pytest
+from fastapi import HTTPException, status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 # Set required environment variables for testing before importing app modules
-os.environ.setdefault("APP_ENV", "development")  # Use development for testing
+os.environ.setdefault("APP_ENV", "test")  # Use test environment to force mock providers
 os.environ.setdefault("APP_DEBUG", "true")
-os.environ.setdefault("RATE_LIMIT_ENABLED", "true")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")  # Disable rate limiting by default in tests (enabled selectively for rate-limit tests)
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-32bytes-min")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-for-testing-32bytes-min")
 os.environ.setdefault("POSTGRES_URL", "postgresql+asyncpg://lumenly:lumenly_secure_password_32chars@localhost:5433/lumenly_test")
@@ -26,7 +27,52 @@ from app.db.mongo import close_mongo, init_mongo
 from app.db.postgres import AsyncSessionLocal, close_postgres, engine
 from app.db.qdrant import close_qdrant, init_qdrant
 from app.db.redis import close_redis, init_redis
+from app.middleware.endpoint_rate_limit import endpoint_rate_limit_middleware
+from app.middleware.metrics import metrics_middleware
+from app.middleware.rate_limit import rate_limit_middleware
 from app.models.user import User
+
+
+# Pytest hook to enable rate limiting only for rate-limiting test files
+def pytest_collection_modifyitems(config, items):
+    """Enable rate limiting selectively for rate-limiting test files."""
+    rate_limit_test_files = [
+        "test_rate_limiting.py",
+        "test_rate_limiting_integration.py",
+        "test_ai_document_rate_limiting.py",
+        "test_auth_rate_limiting.py",
+        "test_multi_worker_rate_limiting.py",
+        "test_rate_limit_http_contract.py",
+    ]
+
+    for item in items:
+        if any(f in item.fspath.strpath for f in rate_limit_test_files):
+            item.add_marker(pytest.mark.rate_limit_test)
+
+
+@pytest.fixture(scope="function", autouse=True)
+async def enable_rate_limiting_for_tests(request, setup_databases):
+    """Enable rate limiting for tests marked with rate_limit_test marker."""
+    if request.node.get_closest_marker("rate_limit_test"):
+        os.environ["RATE_LIMIT_ENABLED"] = "true"
+        # Clean up rate limit keys from Redis before test
+        try:
+            from app.db.redis import get_redis_client
+            redis_client = get_redis_client()
+            # Clean up both global and endpoint rate limit keys
+            keys = await redis_client.keys("rate_limit:*")
+            if keys:
+                await redis_client.delete(*keys)
+            endpoint_keys = await redis_client.keys("endpoint_rate_limit:*")
+            if endpoint_keys:
+                await redis_client.delete(*endpoint_keys)
+        except Exception:
+            pass  # Redis might not be available
+        yield
+        os.environ["RATE_LIMIT_ENABLED"] = "false"
+    else:
+        yield
+
 
 
 async def create_tables():
@@ -183,6 +229,8 @@ async def async_client(setup_databases):
     from app.api.endpoints.vectors import router as vectors_router
     from app.core.config import settings
 
+    # These are imported at module level in conftest.py
+
     test_app = FastAPI(
         title=settings.APP_NAME,
         version=settings.VERSION,
@@ -196,6 +244,15 @@ async def async_client(setup_databases):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add metrics middleware
+    test_app.middleware("http")(metrics_middleware)
+
+    # Add endpoint-specific rate limiting middleware
+    test_app.middleware("http")(endpoint_rate_limit_middleware)
+
+    # Add global rate limiting middleware
+    test_app.middleware("http")(rate_limit_middleware)
 
     test_app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
     test_app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
@@ -226,7 +283,6 @@ async def async_client(setup_databases):
     async def readiness_check():
         from asyncio import timeout
 
-        from fastapi import HTTPException
         from sqlalchemy import text
 
         from app.db.mongo import get_mongo_client
@@ -312,6 +368,7 @@ def client(setup_databases):
     from app.api.endpoints.users import router as users_router
     from app.api.endpoints.vectors import router as vectors_router
     from app.core.config import settings
+    # Middleware are imported at module level: endpoint_rate_limit_middleware, metrics_middleware, rate_limit_middleware
 
     test_app = FastAPI(
         title=settings.APP_NAME,
@@ -326,6 +383,15 @@ def client(setup_databases):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add metrics middleware
+    test_app.middleware("http")(metrics_middleware)
+
+    # Add endpoint-specific rate limiting middleware
+    test_app.middleware("http")(endpoint_rate_limit_middleware)
+
+    # Add global rate limiting middleware
+    test_app.middleware("http")(rate_limit_middleware)
 
     test_app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
     test_app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
@@ -365,6 +431,7 @@ async def async_websocket_client(setup_databases):
     from app.api.endpoints.users import router as users_router
     from app.api.endpoints.vectors import router as vectors_router
     from app.core.config import settings
+    # Middleware are imported at module level: endpoint_rate_limit_middleware, metrics_middleware, rate_limit_middleware
 
     test_app = FastAPI(
         title=settings.APP_NAME,
@@ -379,6 +446,15 @@ async def async_websocket_client(setup_databases):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add metrics middleware
+    test_app.middleware("http")(metrics_middleware)
+
+    # Add endpoint-specific rate limiting middleware
+    test_app.middleware("http")(endpoint_rate_limit_middleware)
+
+    # Add global rate limiting middleware
+    test_app.middleware("http")(rate_limit_middleware)
 
     test_app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
     test_app.include_router(users_router, prefix="/api/v1/users", tags=["users"])

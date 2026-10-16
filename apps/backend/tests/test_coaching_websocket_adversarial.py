@@ -43,7 +43,7 @@ class TestWebSocketAdversarialSecurity:
         with pytest.raises((WebSocketDisconnect, Exception)):
             with client.websocket_connect(
                 f"/v1/coaching/ws/{session_id}"
-            ) as websocket:
+            ):
                 pass
 
         # Verify connection is rejected
@@ -70,7 +70,7 @@ class TestWebSocketAdversarialSecurity:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={token}"
-                ) as websocket:
+                ):
                     pass
 
         # Verify all malformed tokens are rejected
@@ -96,7 +96,7 @@ class TestWebSocketAdversarialSecurity:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={tampered_token}"
-                ) as websocket:
+                ):
                     pass
 
         # Security: decode_access_token validates signature
@@ -132,7 +132,7 @@ class TestWebSocketAdversarialSecurity:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_str}?token={token}"
-                ) as websocket:
+                ):
                     pass
 
         # Security: Invalid session IDs will fail session lookup
@@ -152,7 +152,7 @@ class TestWebSocketAdversarialSecurity:
             try:
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={token}"
-                ) as websocket:
+                ):
                     connection_attempts.append("connected")
                     # Immediately close to allow next attempt
             except (WebSocketDisconnect, Exception):
@@ -180,7 +180,7 @@ class TestWebSocketAdversarialSecurity:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={xss_payload}"
-                ) as websocket:
+                ):
                     pass
 
         # Security: Invalid tokens are rejected before any processing
@@ -196,7 +196,7 @@ class TestWebSocketAdversarialSecurity:
         with pytest.raises((WebSocketDisconnect, Exception)):
             with client.websocket_connect(
                 f"/v1/coaching/ws/{session_id}?token={oversized_token}"
-            ) as websocket:
+            ):
                 pass
 
         # Security: Oversized tokens should be rejected
@@ -222,7 +222,7 @@ class TestWebSocketAdversarialSecurity:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={token}"
-                ) as websocket:
+                ):
                     pass
 
         # Security: Invalid session IDs fail UUID conversion
@@ -249,7 +249,7 @@ class TestWebSocketAdversarialSecurity:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={token}"
-                ) as websocket:
+                ):
                     pass
 
         # Security: Invalid session IDs fail UUID validation
@@ -274,7 +274,7 @@ class TestWebSocketAdversarialRateLimiting:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={injection_attempt}"
-                ) as websocket:
+                ):
                     pass
 
         # Security: Invalid tokens are rejected before header processing
@@ -298,7 +298,7 @@ class TestWebSocketAdversarialRateLimiting:
 
         for url in pollution_attempts:
             with pytest.raises((WebSocketDisconnect, Exception)):
-                with client.websocket_connect(url) as websocket:
+                with client.websocket_connect(url):
                     pass
 
         # Security: Additional parameters are ignored

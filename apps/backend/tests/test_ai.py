@@ -90,7 +90,7 @@ async def test_ai_ask_cross_tenant_isolation(async_client, cleanup_qdrant, clean
     )
     assert login_response_1.status_code == 200
     token_data_1 = login_response_1.json()
-    access_token_1 = token_data_1["access_token"]
+    token_data_1["access_token"]
 
     # Step 2: Register and authenticate user 2
     register_response_2 = await async_client.post(

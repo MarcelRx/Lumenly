@@ -98,7 +98,7 @@ class TestMemoryDatabaseIntegration:
         manager = MemoryManager()
 
         # Store a test memory
-        memory_id = await manager.store_memory(
+        await manager.store_memory(
             user_id="test_user_456",
             memory_type=MemoryType.JOURNAL,
             content="Test journal entry for retrieval",
@@ -130,7 +130,7 @@ class TestMemorySecurityIntegration:
         from app.ai.memory.security import MemorySecurityValidator
 
         manager = MemoryManager()
-        validator = MemorySecurityValidator(manager.storage)
+        MemorySecurityValidator(manager.storage)
 
         # Store memory for user A
         memory_id_a = await manager.store_memory(

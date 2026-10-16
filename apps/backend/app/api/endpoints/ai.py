@@ -32,7 +32,7 @@ class AIQueryResponse(BaseModel):
 
 @router.post("/ask", response_model=AIQueryResponse)
 async def ask_ai(
-    request: AIQueryRequest,
+    ai_request: AIQueryRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
     rag_orchestrator: Annotated[RAGOrchestrator, Depends(get_rag_orchestrator)],
 ) -> AIQueryResponse:
@@ -53,7 +53,7 @@ async def ask_ai(
         # Process the query through the RAG orchestrator
         rag_response = await rag_orchestrator.process_query(
             user_id=str(current_user.id),
-            query=request.query,
+            query=ai_request.query,
             enable_memory=True,
             enable_knowledge=True,
         )

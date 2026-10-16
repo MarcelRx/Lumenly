@@ -30,7 +30,7 @@ class TestWebSocketAuthentication:
         with pytest.raises((WebSocketDisconnect, Exception)):
             with client.websocket_connect(
                 f"/v1/coaching/ws/{session_id}"
-            ) as websocket:
+            ):
                 pass
 
         # The connection should be closed before we can send messages
@@ -44,7 +44,7 @@ class TestWebSocketAuthentication:
         with pytest.raises((WebSocketDisconnect, Exception)):
             with client.websocket_connect(
                 f"/v1/coaching/ws/{session_id}?token={invalid_token}"
-            ) as websocket:
+            ):
                 pass
 
     def test_expired_jwt_token_rejected(self, client: TestClient):
@@ -62,7 +62,7 @@ class TestWebSocketAuthentication:
         with pytest.raises((WebSocketDisconnect, Exception)):
             with client.websocket_connect(
                 f"/v1/coaching/ws/{session_id}?token={expired_token}"
-            ) as websocket:
+            ):
                 pass
 
     def test_malformed_token_rejected(self, client: TestClient):
@@ -81,7 +81,7 @@ class TestWebSocketAuthentication:
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with client.websocket_connect(
                     f"/v1/coaching/ws/{session_id}?token={token}"
-                ) as websocket:
+                ):
                     # If connection succeeds, verify it's closed immediately
                     pass
 
@@ -130,7 +130,7 @@ class TestWebSocketAuthentication:
     @pytest.mark.asyncio
     async def test_nonexistent_session_rejected(self, create_test_user):
         """Test that connection to nonexistent session is rejected."""
-        user = await create_test_user("test@example.com")
+        await create_test_user("test@example.com")
 
         # Verify nonexistent session logic exists
         # The endpoint contains: if not session: await websocket.close(...)

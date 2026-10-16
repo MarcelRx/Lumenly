@@ -170,7 +170,7 @@ class TestToolRegistrySecurity:
         registry = get_tool_registry()
 
         user_a_id = uuid.uuid4()
-        user_b_id = uuid.uuid4()
+        uuid.uuid4()
 
         # The tool executors should enforce tenant isolation
         # This is tested through the actual tool implementations
@@ -334,6 +334,6 @@ class TestToolRegistryIntegration:
         logger.setLevel(original_level)
 
         # Check that warning was logged
-        log_output = log_capture.getvalue()
+        log_capture.getvalue()
         # In a real test environment, this would capture the log
         # For now, we just verify the mechanism exists

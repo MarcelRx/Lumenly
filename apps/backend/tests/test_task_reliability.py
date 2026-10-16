@@ -121,7 +121,7 @@ async def test_retryable_error_triggers_retry(async_client, cleanup_mongo):
     )
 
     assert upload_response.status_code == 202
-    document_id = upload_response.json()["id"]
+    upload_response.json()["id"]
 
     # In eager mode, we can't easily test actual retries
     # Instead, we test that the retry logic is in place by checking task configuration
@@ -146,7 +146,7 @@ async def test_permanent_error_no_retry(async_client, cleanup_mongo):
     """
     mongo_client = get_mongo_client()
     db = mongo_client.get_default_database()
-    collection = db["user_documents"]
+    db["user_documents"]
 
     # Use a fake document ID that doesn't exist
     fake_document_id = "507f1f77bcf86cd799439011"  # Valid ObjectId format but doesn't exist
@@ -190,7 +190,7 @@ async def test_invalid_document_data_permanent_failure(async_client, cleanup_mon
     access_token = login_response.json()["access_token"]
 
     # Upload a document with empty content
-    upload_response = await async_client.post(
+    await async_client.post(
         "/api/v1/documents/",
         headers={"Authorization": f"Bearer {access_token}"},
         json={
@@ -244,7 +244,7 @@ async def test_timeout_handling(async_client, cleanup_mongo):
     )
 
     assert upload_response.status_code == 202
-    document_id = upload_response.json()["id"]
+    upload_response.json()["id"]
 
     # Verify timeout configuration is in place
     task = celery_app.tasks["app.workers.tasks.process_document_task"]

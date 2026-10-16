@@ -349,7 +349,7 @@ async def test_resource_enumeration_does_not_disclose_data(tool_registry, user_a
     """
     # Try to access User B's habit
     try:
-        result = await tool_registry.execute_tool(
+        await tool_registry.execute_tool(
             tool_name="check_habit_status",
             arguments={"habit_id": str(habit_b.id)},
             user_id=user_a.id,
@@ -365,7 +365,7 @@ async def test_resource_enumeration_does_not_disclose_data(tool_registry, user_a
 
     # Try to access User B's goal
     try:
-        result = await tool_registry.execute_tool(
+        await tool_registry.execute_tool(
             tool_name="get_goal_progress",
             arguments={"goal_id": str(goal_b.id)},
             user_id=user_a.id,

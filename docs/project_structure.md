@@ -33,8 +33,9 @@ Lumenly/                          # Git root
 │   ├─ Roadmap.md                # Master development roadmap
 │   └─ project_structure.md      # <-- you are reading this file
 ├─ infra/                        # IaC (Docker Compose, Helm, Terraform stubs)
-├─ frontend/                     # React Native / Expo app
-├─ backend/                      # FastAPI service
+├─ apps/
+│   ├─ frontend/                 # React 19 + TypeScript + Vite web application
+│   └─ backend/                  # FastAPI service
 ├─ ai/                           # AI-related modules (agents, knowledge brain, memory)
 │   ├─ memory_engine/            # Vector store wrapper & Qdrant utils
 │   ├─ knowledge_brain/          # LLM prompting, Groq / Gemini clients, RAG
@@ -52,51 +53,71 @@ Each top-level folder has a **Purpose**, **Responsibilities**, and **Ownership**
 
 ---
 
-## 3. Frontend Structure (`frontend/`)
+## 3. Frontend Structure (`apps/frontend/`)
 
-**Purpose** – Deliver the cross-platform mobile experience via React Native & Expo.
+**Purpose** – Deliver the web application interface via React 19 + TypeScript + Vite.
+
+**Current Implementation Status:** Minimal implementation with 3 screens only.
 
 ```
-frontend/
+apps/frontend/
 ├─ src/
-│   ├─ components/               # Re-usable UI components (Button, Card, Avatar, ProgressRing)
-│   ├─ screens/                  # Feature-level screens
-│   │   ├─ auth/                 # Register, Login, VerifyEmail, ForgotPassword
-│   │   ├─ onboarding/           # Domain selection, initial assessment
-│   │   ├─ dashboard/            # Unified Dashboard (wellness score, priorities)
-│   │   ├─ coach/                # AI Coach chat & voice interface
-│   │   ├─ goals/                # Goals list, create, detail
-│   │   ├─ habits/               # Habits list, create, check-in
-│   │   ├─ journal/              # Journal list, create entry
-│   │   ├─ insights/             # Daily/weekly/monthly AI insights
-│   │   ├─ knowledge/            # Knowledge Brain document upload & list
-│   │   ├─ wellness/             # Wellness dashboard & trends
-│   │   └─ profile/              # Settings, subscription, preferences
-│   ├─ navigation/               # React Navigation stacks & deep links
-│   ├─ hooks/                    # Custom React hooks (useAuth, useAI, useWebSocket)
-│   ├─ services/                 # HTTP client wrappers (axios) for backend API
-│   ├─ stores/                   # Zustand state slices (auth, profile, goals, habits)
-│   ├─ utils/                    # Helpers (date, validation, i18n)
-│   └─ theme/                    # Design-system tokens (colors, spacing, typography)
-├─ assets/                       # Icons, images, Expo splash screens
-├─ e2e/                          # Detox / Playwright mobile end-to-end tests
-├─ __tests__/                    # Unit tests (Jest)
-├─ app.json & app.config.js      # Expo configuration
-├─ tsconfig.json
-└─ package.json
+│   ├─ App.tsx                   # Main application with routing
+│   ├─ main.tsx                  # Application entry point
+│   ├─ Login.tsx                 # Login screen (email/password authentication)
+│   ├─ Chat.tsx                  # AI coaching chat interface
+│   ├─ pages/
+│   │   └─ KnowledgeBase.tsx      # Knowledge Base dashboard
+│   ├─ assets/                   # Static assets
+│   ├─ index.css                 # Global styles
+│   └─ App.css                   # App component styles
+├─ public/                       # Public assets
+├─ dist/                         # Build output
+├─ index.html                    # HTML entry point
+├─ package.json                  # Dependencies and scripts
+├─ vite.config.ts                # Vite configuration
+├─ tsconfig.json                 # TypeScript configuration
+└─ eslint.config.js              # ESLint configuration
 ```
 
-**Responsibilities** – UI rendering, client-side validation, offline caching, voice interaction integration, WebSocket management.  
-**Ownership** – **Frontend Squad** (React Native engineers, UX designers).
+**Technology Stack:**
+
+- React 19
+- TypeScript
+- Vite (build tool)
+- React Router DOM (client-side routing)
+- Axios (HTTP client)
+- Tailwind CSS (styling)
+- Lucide React (icons)
+
+**Implemented Screens:**
+
+- Login (`/login`) - Email/password authentication with JWT token storage
+- Chat Workspace (`/`) - HTTP-based AI coaching interface
+- Knowledge Base (`/kb`) - Document management dashboard
+
+**Not Yet Implemented:**
+
+- Goal tracking UI
+- Habit tracking UI
+- Journal entry UI
+- Wellness dashboard
+- Profile/settings
+- Registration screen
+- WebSocket-based real-time chat
+- Mobile-responsive design optimizations
+
+**Responsibilities** – UI rendering, client-side validation, HTTP API communication, authentication state management.
+**Ownership** – **Frontend Squad** (React engineers, UX designers).
 
 ---
 
-## 4. Backend Structure (`backend/`)
+## 4. Backend Structure (`apps/backend/`)
 
 **Purpose** – Core API, business logic, authentication, and orchestration of AI services.
 
 ```
-backend/
+apps/backend/
 ├─ app/
 │   ├─ api/                      # FastAPI routers (v1) grouped by domain
 │   │   ├─ auth.py               # /v1/auth/* — register, login, logout, refresh
@@ -145,7 +166,7 @@ backend/
 └─ requirements.txt
 ```
 
-**Responsibilities** – REST/WebSocket API, data validation, transaction management, security, queuing background jobs.  
+**Responsibilities** – REST/WebSocket API, data validation, transaction management, security, queuing background jobs.
 **Ownership** – **Backend Team** (FastAPI engineers, data engineers).
 
 ### MongoDB & Beanie ODM Setup
@@ -276,7 +297,7 @@ ai/agent_system/
 - **subscription/** – Plan management, Stripe integration.
 - **admin/** – Enterprise admin console (feature flags, tenant management, analytics).
 
-Each router is versioned (`/api/v1/...`) and documented via OpenAPI which lives under `shared/openapi.yaml`.  
+Each router is versioned (`/api/v1/...`) and documented via OpenAPI which lives under `shared/openapi.yaml`.
 **Ownership** – Backend Team, with AI Team reviewing the AI-related routes.
 
 ---
@@ -301,7 +322,7 @@ infra/
     └─ deploy.sh                 # CI-CD entry point for Docker Hub / GHCR
 ```
 
-**Purpose** – Provide reproducible environments for dev, CI, and production.  
+**Purpose** – Provide reproducible environments for dev, CI, and production.
 **Ownership** – **Platform Ops Team**.
 
 ---
@@ -343,21 +364,21 @@ infra/
 
 ## 13. Documentation Structure (`docs/`)
 
-| File | Description |
-|------|-------------|
-| `PRD.md` | Approved Product Requirements Document |
-| `system_architecture.md` | High-level component diagram & architecture decisions |
-| `database_design.md` | Full MongoDB schema & indexing strategy |
-| `ai_system_design.md` | AI/ML architecture blueprint |
-| `api_contracts.md` | OpenAPI-style API specification |
-| `Roadmap.md` | Master development roadmap (phases 0–15) |
-| `project_structure.md` | This file |
-| `deployment_guide.md` *(planned)* | How to spin up local dev, staging, production |
-| `devops_playbook.md` *(planned)* | Runbooks for backups, scaling, incident response |
-| `contributing.md` *(planned)* | Code style, PR process, branching model |
+| File                              | Description                                           |
+| --------------------------------- | ----------------------------------------------------- |
+| `PRD.md`                          | Approved Product Requirements Document                |
+| `system_architecture.md`          | High-level component diagram & architecture decisions |
+| `database_design.md`              | Full MongoDB schema & indexing strategy               |
+| `ai_system_design.md`             | AI/ML architecture blueprint                          |
+| `api_contracts.md`                | OpenAPI-style API specification                       |
+| `Roadmap.md`                      | Master development roadmap (phases 0–15)              |
+| `project_structure.md`            | This file                                             |
+| `deployment_guide.md` _(planned)_ | How to spin up local dev, staging, production         |
+| `devops_playbook.md` _(planned)_  | Runbooks for backups, scaling, incident response      |
+| `contributing.md` _(planned)_     | Code style, PR process, branching model               |
 
 **Ownership** – Documentation is a shared responsibility; a dedicated **Docs Owner** ensures consistency.
 
 ---
 
-*Prepared by the Lumenly Engineering Team — 2026-06-23.*
+_Prepared by the Lumenly Engineering Team — 2026-06-23._

@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.post("/ask", response_model=ChatResponse)
 async def ask(
-    request: ChatRequest,
+    chat_request: ChatRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     rag_orchestrator: Annotated[RAGOrchestrator, Depends(get_rag_orchestrator)],
 ) -> ChatResponse:
@@ -38,7 +38,7 @@ async def ask(
         # Process the query through the RAG orchestrator
         rag_response = await rag_orchestrator.process_query(
             user_id=str(current_user.id),
-            query=request.query,
+            query=chat_request.query,
             enable_memory=True,
             enable_knowledge=True,
         )

@@ -13,7 +13,7 @@ ENV_FILE_PATH = os.path.join(BASE_DIR, ".env")
 
 class Settings(BaseSettings):
     # Application Config
-    APP_ENV: Literal["development", "staging", "production"] = "development"
+    APP_ENV: Literal["development", "staging", "production", "test"] = "development"
     APP_NAME: str = "Lumenly"
     VERSION: str = "0.1.0"
     APP_DEBUG: bool = True
@@ -127,14 +127,7 @@ class Settings(BaseSettings):
 
         if self.APP_ENV == "test":
             # Test environment should be deterministic
-            if self.APP_DEBUG is True:
-                import warnings
-
-                warnings.warn(
-                    "APP_DEBUG is True in test environment. "
-                    "Tests should run with debug disabled for production-like behavior.",
-                    RuntimeWarning,
-                )
+            # No strict validation needed for test
             return
 
         if self.APP_ENV == "staging":
@@ -363,6 +356,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_FAIL_OPEN: bool = Field(
         default=False,
         description="If False, block requests when Redis is unavailable (FAIL-CLOSED). If True, allow requests (FAIL-OPEN). Default FAIL-CLOSED for security.",
+    )
+    RATE_LIMIT_TRUSTED_PROXIES: str = Field(
+        default="",
+        description="Comma-separated list of trusted proxy IP addresses/CIDR ranges that can set X-Forwarded-For. Empty means no trusted proxies (ignore X-Forwarded-For).",
     )
 
     model_config = SettingsConfigDict(

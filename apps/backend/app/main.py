@@ -34,6 +34,7 @@ from app.db.mongo import close_mongo, get_mongo_client, init_mongo
 from app.db.postgres import AsyncSessionLocal, close_postgres
 from app.db.qdrant import close_qdrant, get_qdrant_client, init_qdrant
 from app.db.redis import close_redis, get_redis_client, init_redis
+from app.middleware.endpoint_rate_limit import endpoint_rate_limit_middleware
 from app.middleware.metrics import metrics_middleware
 from app.middleware.rate_limit import rate_limit_middleware
 
@@ -119,7 +120,10 @@ app.add_middleware(
 # Metrics middleware (must be before rate limiting to track all requests)
 app.middleware("http")(metrics_middleware)
 
-# Rate limiting middleware
+# Endpoint-specific rate limiting middleware (must be before global rate limiting)
+app.middleware("http")(endpoint_rate_limit_middleware)
+
+# Global rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
 
 

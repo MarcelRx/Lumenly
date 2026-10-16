@@ -36,7 +36,7 @@ class TestMemoryStoragePerformance:
         storage = Mock(spec=MultiBackendMemoryStorage)
 
         async def timed_store(memory):
-            start = time.time()
+            time.time()
             await asyncio.sleep(0.001)  # Simulate storage delay
             return "test_id"
 
@@ -134,7 +134,7 @@ class TestMemoryRetrievalPerformance:
         ranker = MemoryRanker()
 
         start_time = time.time()
-        results = await ranker.rank(sample_memories[:10], "test query")
+        await ranker.rank(sample_memories[:10], "test query")
         elapsed = time.time() - start_time
 
         print(f"Small dataset retrieval latency: {elapsed * 1000:.2f}ms")
@@ -146,7 +146,7 @@ class TestMemoryRetrievalPerformance:
         ranker = MemoryRanker()
 
         start_time = time.time()
-        results = await ranker.rank(sample_memories[:50], "test query")
+        await ranker.rank(sample_memories[:50], "test query")
         elapsed = time.time() - start_time
 
         print(f"Medium dataset retrieval latency: {elapsed * 1000:.2f}ms")
@@ -158,7 +158,7 @@ class TestMemoryRetrievalPerformance:
         ranker = MemoryRanker()
 
         start_time = time.time()
-        results = await ranker.rank(sample_memories, "test query")
+        await ranker.rank(sample_memories, "test query")
         elapsed = time.time() - start_time
 
         print(f"Large dataset retrieval latency: {elapsed * 1000:.2f}ms")
@@ -432,7 +432,7 @@ class TestMemoryResourceUsage:
         ranker = MemoryRanker()
         start_time = time.time()
 
-        results = await ranker.rank(memories, "test query")
+        await ranker.rank(memories, "test query")
 
         elapsed = time.time() - start_time
 
@@ -602,7 +602,6 @@ class TestMemoryBenchmark:
 
         # Sustained load test
         storage_latencies = []
-        retrieval_latencies = []
         ranking_latencies = []
 
         for i in range(100):

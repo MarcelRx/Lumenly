@@ -131,7 +131,7 @@ async def test_list_documents_user_isolation(async_client, cleanup_mongo):
             "content": "User A's document content",
         },
     )
-    doc_a_id = upload_a.json()["id"]
+    upload_a.json()["id"]
 
     # User B uploads a document
     upload_b = await async_client.post(
@@ -142,7 +142,7 @@ async def test_list_documents_user_isolation(async_client, cleanup_mongo):
             "content": "User B's document content",
         },
     )
-    doc_b_id = upload_b.json()["id"]
+    upload_b.json()["id"]
 
     # User A lists documents - should only see their own
     response_a = await async_client.get(

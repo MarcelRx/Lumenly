@@ -143,8 +143,11 @@ class TestDistanceMetricConfiguration:
 class TestEmbeddingProviderConfiguration:
     """Test embedding provider configuration."""
 
-    def test_default_embedding_provider(self):
+    def test_default_embedding_provider(self, monkeypatch):
         """Test default embedding provider."""
+        # Clear EMBEDDING_PROVIDER to test actual default
+        monkeypatch.delenv("EMBEDDING_PROVIDER", raising=False)
+
         config = Settings(
             SECRET_KEY="test-secret",
             JWT_SECRET="test-jwt-secret",

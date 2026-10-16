@@ -619,7 +619,7 @@ async def test_vector_search_is_tenant_isolated(async_client, user_a, user_b, ge
             "/api/v1/auth/login",
             data={"username": user_a.email, "password": "password_a"},
         )
-        token_a = login_response_a.json()["access_token"]
+        login_response_a.json()["access_token"]
 
         # Search as User A - should retrieve User A's vector
         search_response_a = await qdrant_client.query_points(

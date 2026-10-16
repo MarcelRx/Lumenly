@@ -14,7 +14,7 @@ Tests against actual infrastructure where possible:
 """
 import pytest
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from app.models.domain import CoachingSession, AIInsight, SessionType, InsightType
 from app.models.user import User
@@ -353,7 +353,7 @@ class TestToolRegistryIntegration:
             assert result is not None
             assert "status" in result
             
-        except Exception as e:
+        except Exception:
             # Tool execution might fail if dependencies aren't available
             # But the registry mechanism should work
             pass

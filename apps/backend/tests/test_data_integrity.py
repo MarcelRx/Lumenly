@@ -154,7 +154,7 @@ class TestAIInsightDataIntegrity:
     async def test_confidence_validation(self):
         """Test that confidence scores are validated."""
         # Valid confidence
-        insight = AIInsight(
+        AIInsight(
             user_id=uuid.uuid4(),
             insight_type=InsightType.WELLNESS_TREND,
             pillar="mental_health",
@@ -164,7 +164,7 @@ class TestAIInsightDataIntegrity:
 
         # Invalid confidence (would be caught by Pydantic validation)
         try:
-            invalid_insight = AIInsight(
+            AIInsight(
                 user_id=uuid.uuid4(),
                 insight_type=InsightType.WELLNESS_TREND,
                 pillar="mental_health",

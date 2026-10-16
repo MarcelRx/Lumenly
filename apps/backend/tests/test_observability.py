@@ -58,7 +58,7 @@ class TestRequestCorrelation:
 
         async def make_request():
             # Each request should get its own context
-            ctx = copy_context()
+            copy_context()
             request_id = str(uuid.uuid4())
             set_request_id(request_id)
             request_ids.append(get_request_id())
