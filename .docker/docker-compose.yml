@@ -71,8 +71,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /Users/mohsenrassam/Desktop/Lumenly/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - ../prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -91,7 +91,7 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ../monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
@@ -116,8 +116,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
     volumes:
-      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - /Users/mohsenrassam/Desktop/Lumenly/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     restart: unless-stopped
     healthcheck:
