@@ -1,441 +1,312 @@
-# Lumenly
+# Lumenly — The AI Life Operating System
 
-AI-powered wellness coaching platform — TurboRepo monorepo.
+> **One AI that understands your entire life.**
+> Lumenly combines long-term memory, personal knowledge (RAG), behavioral analytics, and 8 specialized coaching agents to help people continuously improve every major area of their lives — mental health, productivity, learning, habits, fitness, relationships, career, finances, and life goals — through one unified AI companion.
 
-## Overview
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions)](./.github) [![Backend](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi)](./apps/backend) [![Frontend](https://img.shields.io/badge/frontend-React_19-61DAFB?logo=react)](./apps/frontend) [![License](https://img.shields.io/badge/status-private-red)](#)
 
-Lumenly is an AI-native life operating system designed to provide personalized wellness coaching through multiple specialized AI agents. The platform integrates memory management, knowledge retrieval, and secure tool execution to deliver context-aware coaching experiences.
+---
 
-## Vision and Goals
+## Table of Contents
 
-**Vision:** To become a comprehensive AI-powered life operating system that helps users achieve their wellness goals through personalized, context-aware coaching.
+1. [What is Lumenly?](#what-is-lumenly)
+2. [Key Features](#key-features)
+3. [Architecture Overview](#architecture-overview)
+4. [Tech Stack](#tech-stack)
+5. [Monorepo Structure](#monorepo-structure)
+6. [Getting Started](#getting-started)
+7. [Environment Variables](#environment-variables)
+8. [API Overview](#api-overview)
+9. [Testing](#testing)
+10. [Observability](#observability)
+11. [Security & Privacy](#security--privacy)
+12. [Monetization Tiers](#monetization-tiers)
+13. [Roadmap](#roadmap)
+14. [Documentation](#documentation)
+15. [Contributing](#contributing)
 
-**Goals:**
+---
 
-- Provide domain-specific coaching across mental health, fitness, career, finance, relationships, and more
-- Maintain user privacy through tenant isolation and secure data handling
-- Enable scalable multi-tenant architecture for 10M+ users
-- Support real-time coaching interactions via WebSocket
-- Deliver personalized insights based on user behavior and goals
+## What is Lumenly?
 
-## Problem
+Lumenly is **not** a chatbot, a meditation app, or a habit tracker. It is the **AI Operating System for Human Growth**.
 
-Traditional wellness coaching applications lack:
+Most AI apps answer questions. Lumenly answers:
 
-- Personalized, context-aware AI interactions
-- Secure multi-tenant isolation for sensitive data
-- Scalable architecture for large user bases
-- Integration of memory, knowledge, and tools in a unified system
+- *Why are you struggling?*
+- *What should you do next?*
+- *Which action will create the biggest improvement?*
+- *What patterns are holding you back?*
 
-## Solution
+It does this by unifying four capabilities that are normally siloed across 5+ separate apps:
 
-Lumenly provides:
+| Capability | What it means for the user |
+|---|---|
+| **Long-Term Memory** | Lumenly remembers that you study best at night, your motivation drops after poor sleep, and walking improves your mood — across sessions, forever. |
+| **Knowledge Brain (RAG)** | Upload your books (Atomic Habits, Deep Work, The Psychology of Money…), and coaching is grounded in *your* content: "Based on Deep Work, your focus sessions should run 8–10 PM — historically this raises your task completion by 31%." |
+| **Behavioral Analytics** | Journals, mood check-ins, goals, habits, and (in later phases) wearable data are fused into a 0–100 **Wellness Score** and cross-domain insights. |
+| **8 Coaching Agents** | A Life Strategist, Mental Wellness Coach, Habit Coach, Learning Coach, Fitness Coach, Career Coach, Financial Coach, and Relationship Coach, coordinated by a Fusion Engine. |
 
-- **Multi-agent AI system** with specialized coaches for different life domains
-- **Privacy-first memory architecture** with short-term (Redis) and long-term (Qdrant) storage
-- **Knowledge brain (RAG)** for document-based context retrieval
-- **Secure tool execution** with tenant isolation and authorization
-- **Real-time coaching** via WebSocket with rate limiting
-- **Comprehensive testing** with 832+ tests covering security, authorization, and functionality
+## Key Features
 
-## System Architecture
+- **Authentication & RBAC** — JWT (HS256/RS256) with 15-minute access tokens, 7-day rotating refresh tokens, `user`/`admin` roles.
+- **Conversational AI Coach** — Text chat over HTTP and structured coaching sessions over **WebSocket** (assessment, nudge, reflection, escalation).
+- **Memory Engine** — Short-term conversation memory in Redis, long-term semantic memory in Qdrant with per-user (tenant) isolation, memory ranking, consolidation, and forgetting curves.
+- **Knowledge Brain** — PDF/text upload → chunking → embeddings → Qdrant (per-user collections) → RAG retrieval with security validation.
+- **Goals, Habits & Journals** — Full domain models with streaks, mood scores (1–10), and semantic search over journal entries.
+- **Tool Registry** — Secure, schema-validated tool execution (habit status, goal progress, recent journals) with tenant isolation and security logging.
+- **AI Security Layer** — Prompt-injection detection, input sanitization, output filtering, compliance event logging.
+- **Rate Limiting** — Redis-based distributed sliding-window limits, per-endpoint limits, WebSocket limits, fail-closed on Redis failure.
+- **Predictive Intelligence (roadmap)** — Burnout risk, motivation decline, habit-failure, and goal-abandonment early warnings.
+- **Voice Companion “Lumen” (roadmap)** — Groq + ElevenLabs real-time voice coaching with emotional tone detection.
 
-Lumenly uses a TurboRepo monorepo structure:
+## Architecture Overview
+
+```
+┌──────────────────────────┐
+│  React 19 + TS + Vite    │  Web app: Login, Chat Workspace, Knowledge Base
+└───────────┬──────────────┘
+            │ HTTP / WebSocket (JWT)
+            ▼
+┌───────────────────────────────────────┐
+│            FastAPI Backend            │
+│  API layer · Auth/RBAC · Middleware   │
+│  (rate limiting, metrics, req IDs)    │
+├───────────────────────────────────────┤
+│  Services (coaching, LLM, vectors)    │
+│  AI: RAG · Memory Engine · Agent      │
+│  Router · Tool Registry · Security    │
+└──┬─────────┬─────────┬─────────┬─────┘
+   ▼         ▼         ▼         ▼
+PostgreSQL MongoDB   Redis     Qdrant
+(users)   (domain   (cache,   (long-term memory,
+           models)   rate       knowledge vectors)
+           & limits)
+        ▲
+        └── Groq (primary LLM) · Gemini (fallback) · Embedding providers (OpenAI/Cohere/FastEmbed)
+```
+
+**Request flow:** authenticate → rate-limit → retrieve short-term (Redis) + long-term (Qdrant) memory → knowledge retrieval → security validation (prompt-injection, sanitization) → agent routing → LLM generation → output filtering → persist turn → respond.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python, FastAPI (async), Pydantic v2 |
+| Auth store | PostgreSQL (async SQLAlchemy 2.0 + Alembic) |
+| Domain store | MongoDB Atlas (Motor + Beanie ODM) |
+| Cache & limits | Redis (async), sliding-window rate limiting |
+| Vector store | Qdrant (per-user collections) |
+| LLM providers | Groq — `llama-3.3-70b-versatile` (primary), Gemini — `gemini-2.5-flash` (fallback), Mock (tests) |
+| Embeddings | OpenAI `text-embedding-3-small`, Cohere `embed-english-v3.0`, FastEmbed `bge-small-en-v1.5`, Sentence-Transformers `all-MiniLM-L6-v2` |
+| Background jobs | Celery + Beat |
+| Frontend | React 19, TypeScript, Vite, React Router 7, Axios, Tailwind CSS 4, Lucide icons |
+| Monorepo | TurboRepo, npm workspaces |
+| Observability | Prometheus (`prometheus-client`), Grafana, structured JSON logging (Loguru) |
+| AI voice (planned) | ElevenLabs STT/TTS, Groq inference |
+
+## Monorepo Structure
 
 ```
 Lumenly/
 ├── apps/
-│   ├── backend/          # FastAPI service (Python 3.11+)
-│   └── frontend/         # React 19 + TypeScript + Vite web application
-├── packages/
-│   └── shared/           # OpenAPI specs, JSON schemas, shared contracts
-├── docs/                 # Architecture & product documentation
-├── infra/                # IaC (Docker Compose, Helm, Terraform)
-├── tests/                # Cross-cutting integration & e2e suites
-└── scripts/              # Helper scripts (seeding, initialization)
+│   ├── backend/            # FastAPI service
+│   │   ├── app/
+│   │   │   ├── api/       # endpoints: auth, chat, coaching (WS), documents, journals, memory, vectors, ai, metrics
+│   │   │   ├── ai/        # agents, memory, memory_engine, knowledge_brain, rag, llm, embeddings, tools, orchestration, security
+│   │   │   ├── core/      # config, security, metrics, logging, celery
+│   │   │   ├── db/        # PostgreSQL + MongoDB + Redis + Qdrant clients
+│   │   │   ├── models/    # User (PG) + domain models (Mongo/Beanie)
+│   │   │   ├── services/  # coaching, llm, vector
+│   │   │   └── middleware/# rate limiting (global, per-endpoint), metrics
+│   │   ├── alembic/       # SQL migrations
+│   │   └── tests/
+│   └── frontend/          # React 19 + TS + Vite web app
+│       └── src/           # Login, Chat, Knowledge Base pages
+├── packages/shared/       # OpenAPI spec, JSON schemas, shared contracts
+├── docs/                  # PRD, architecture, requirements, runbooks, decisions (ADRs), project-status
+├── infra/                 # Docker Compose, deployment configs
+├── monitoring/            # Grafana dashboards, Prometheus config
+├── tests/                 # integration, e2e, performance, security suites
+├── docker-compose.yml
+├── prometheus.yml
+├── turbo.json
+└── package.json
 ```
 
-### Tech Stack
-
-**Backend:**
-
-- FastAPI (async) for HTTP/WebSocket APIs
-- PostgreSQL for user authentication and authorization
-- MongoDB Atlas (via Beanie ODM) for domain models (goals, habits, journals, coaching sessions)
-- Redis for caching, rate limiting, and short-term memory
-- Qdrant for vector storage and semantic search
-- Celery for background tasks
-
-**AI/ML:**
-
-- LLM providers: Groq (primary), Gemini (fallback/enterprise)
-- Embedding providers: OpenAI, Cohere, FastEmbed, Sentence Transformers
-- Custom RAG orchestrator with security validation
-- Memory engine with short-term and long-term storage
-
-**Security:**
-
-- JWT authentication (HS256 and RS256 support)
-- Role-based access control (RBAC)
-- Tenant isolation at database query level
-- Redis-based rate limiting (endpoint-specific and global)
-- Trusted proxy validation for rate limiting
-- Tool registry with authorization and input validation
-
-## Key Features
-
-### Implemented Features
-
-**Backend:**
-
-- **User Authentication:** JWT-based auth with refresh tokens, role-based access control
-- **Memory Management:** Short-term (Redis) and long-term (Qdrant) memory with tenant isolation
-- **Document Upload:** PDF processing with chunking and embedding for knowledge retrieval
-- **Goal & Habit Tracking:** MongoDB-based goal and habit management with streak tracking
-- **Journal Entries:** User reflections with mood scoring and vector search
-- **AI Insights:** Automated insights generation with TTL-based expiration
-- **Rate Limiting:** Redis-based distributed rate limiting with endpoint-specific limits
-- **Tool Execution:** Secure tool registry with authorization and tenant isolation
-- **Metrics & Observability:** Prometheus metrics for requests, rate limits, and security events
-- **RAG Orchestrator:** Retrieval-augmented generation with memory and knowledge retrieval
-- **Agent Framework:** Base agent interface and keyword-based router (framework only, no concrete agent implementations)
-
-**Not Yet Implemented (Backend):**
-
-- Coaching Sessions: Assessment, nudge, reflection, and escalation flows via WebSocket
-- Concrete specialized agent implementations (Fitness Coach, Habit Coach, etc.) - only the framework exists
-- Voice pipeline (ElevenLabs integration)
-- Wellness intelligence engine (sensor data integration)
-- Personalization engine (user blueprint computation)
-- Agent fusion engine for parallel execution
-- Data deletion (GDPR right-to-be-forgotten)
-
-**Frontend (Web Application):**
-
-- **Login Screen:** Email/password authentication with JWT token storage
-- **Chat Workspace:** HTTP-based AI coaching interface (POST to /api/v1/ai/ask) with multi-agent routing display
-- **Knowledge Base Dashboard:** Document management interface
-- **Client-Side Routing:** React Router DOM for navigation
-- **Authentication State:** Token-based session management with localStorage
-- **HTTP Communication:** Uses Axios for HTTP requests to backend API (not WebSocket or polling)
-
-### Planned Features
-
-- **Specialized AI Agents:** Concrete implementations of domain-specific coaches (Fitness Coach, Habit Coach, etc.) - currently only the base agent framework exists
-- **Voice Pipeline:** ElevenLabs integration for voice input/output
-- **Wellness Intelligence Engine:** Sensor data integration for wellness scoring
-- **Personalization Engine:** User blueprint computation from behavior patterns
-- **Advanced Agent Orchestration:** Parallel agent execution and fusion engine
-
-## AI Architecture
-
-### Implemented Components
-
-**RAG Orchestrator:**
-
-- Unified retrieval-augmented generation pipeline
-- Security validation (prompt injection detection, input sanitization, output filtering)
-- Memory retrieval (short-term and long-term)
-- Knowledge retrieval from user documents
-- Context construction and ranking
-- LLM generation with fallback handling
-
-**Memory Engine:**
-
-- Short-term memory: Redis-based conversation history
-- Long-term memory: Qdrant-based vector storage with semantic search
-- Memory manager orchestrating both layers
-- Tenant isolation at vector search level
-
-**Agent System (Framework Only):**
-
-- BaseAgent abstract class defining agent contract
-- AgentRouter with keyword-based routing to 8 agent types
-- AgentType enum: LIFE_STRATEGIST, MENTAL_WELLNESS, HABIT_COACH, LEARNING_COACH, FITNESS_COACH, CAREER_COACH, FINANCIAL_COACH, RELATIONSHIP_COACH
-- **Note:** Concrete agent implementations are not yet implemented - only the framework exists
-
-**Tool Registry:**
-
-- Three registered tools: check_habit_status, get_goal_progress, get_recent_journals
-- Tool authorization with role-based access control
-- Input validation against JSON schemas
-- Tenant isolation enforcement at database query level
-- Security event logging for cross-tenant access attempts
-
-**Knowledge Brain:**
-
-- Document chunking with configurable chunk size
-- Embedding pipeline with multiple provider support
-- Qdrant-based vector storage with user_id filtering
-- Semantic search with tenant isolation
-
-### Not Yet Implemented
-
-- Concrete specialized agent implementations (only BaseAgent framework exists)
-- Agent fusion engine for parallel execution
-- Agent tool calling with function execution
-- LLM router with cost-aware model selection
-- Voice pipeline with ElevenLabs integration
-- Wellness intelligence engine with sensor data
-- Personalization engine with user blueprint computation
-
-## Data Architecture
-
-### Data Flow
-
-1. **User Request** → FastAPI endpoint with JWT authentication
-2. **Rate Limiting** → Redis-based sliding window check
-3. **Context Retrieval** → Memory manager retrieves short-term and long-term memories
-4. **Knowledge Retrieval** → Qdrant search for relevant document chunks (if available)
-5. **Security Validation** → Prompt injection detection and input sanitization
-6. **LLM Generation** → Groq or Gemini provider based on configuration
-7. **Response Validation** → Output filtering and safety checks
-8. **Memory Persistence** → Conversation turn saved to short-term memory
-9. **Response** → JSON response with metadata and context used
-
-### Data Stores
-
-**PostgreSQL:**
-
-- Users table (authentication, roles, email)
-- Immutable audit logs (compliance events)
-
-**MongoDB Atlas:**
-
-- Journal entries (user reflections with mood scores)
-- Goals (user objectives with completion tracking)
-- Habits (recurring activities with streak counts)
-- User documents (uploaded files with vector IDs)
-- Coaching sessions (session metadata and status)
-- AI insights (generated insights with TTL)
-- Compliance events (security and audit events)
-
-**Redis:**
-
-- Short-term memory (conversation history)
-- Rate limit counters (sliding window)
-- Caching layer (profiles, session data)
-
-**Qdrant:**
-
-- Long-term memory vectors (semantic search)
-- Knowledge base vectors (document chunks)
-- User-scoped collections with tenant isolation
-
-## Testing and Evaluation
-
-### Test Coverage
-
-- **832 tests passing** (as of Phase 12.5, commit 4a93c03)
-- **1 xfailed test** (expected failure in test_configuration.py)
-- **229 warnings** (non-blocking, mostly deprecations and asyncio marks)
-
-### Test Categories
-
-- Unit tests for individual components
-- Integration tests for database interactions
-- Security tests for authentication, authorization, and tenant isolation
-- Rate limiting tests (endpoint-specific and multi-worker)
-- WebSocket coaching tests (adversarial and security)
-- AI component tests (memory, RAG, embeddings)
-- Architecture regression tests
-
-### Running Tests
-
-```bash
-# Run all tests
-cd apps/backend
-python -m pytest tests/ -v --tb=short --no-header
-
-# Run with coverage
-python -m pytest tests/ --cov=app --cov-report=xml --cov-report=term
-```
-
-### Linting
-
-```bash
-# Run Ruff linter
-cd apps/backend
-ruff check app/ --fix
-
-# Run Ruff formatter
-ruff format app/
-```
-
-## Security and Privacy
-
-### Authentication & Authorization
-
-- JWT access tokens (15 min expiration) and refresh tokens (7 days)
-- Support for HS256 and RS256 algorithms
-- Role-based access control (user, admin)
-- Token rotation prevents reuse
-
-### Tenant Isolation
-
-- All database queries include user_id filter
-- Vector search in Qdrant uses user_id filter
-- Tool execution enforces ownership at database level
-- Cross-tenant access attempts logged as security events
-
-### Rate Limiting
-
-- Redis-based distributed rate limiting
-- Endpoint-specific limits (login, registration, AI requests, document uploads)
-- Per-user and per-IP isolation
-- Fail-closed behavior on Redis failure (configurable)
-- Trusted proxy validation for X-Forwarded-For headers
-
-### Input Validation & Sanitization
-
-- Prompt injection detection
-- Input sanitization before LLM processing
-- Output filtering for sensitive content
-- Tool argument validation against JSON schemas
-
-### Secrets Management
-
-- Configuration validation rejects placeholder secrets in production
-- Environment-specific validation (development, staging, production)
-- Secret key length requirements (32+ characters)
-- Separate SECRET_KEY and JWT_SECRET required
-
-## Observability and Error Handling
-
-### Metrics
-
-- Prometheus metrics for:
-  - HTTP request duration and status codes
-  - Rate limit violations
-  - WebSocket connections and messages
-  - Security events (authorization failures, cross-tenant attempts)
-  - Database health status
-
-### Logging
-
-- Structured logging with request correlation IDs
-- Request timing tracking
-- Error logging with full context server-side
-- Safe error messages to clients (stack traces only in development)
-
-### Health Checks
-
-- `/health/live` - Liveness probe (process alive, no external dependencies)
-- `/health/ready` - Readiness probe (verifies PostgreSQL, MongoDB, Redis, Qdrant)
-- `/health` - Legacy endpoint for backward compatibility
-
-### Error Handling
-
-- Global exception handler with proper observability
-- Graceful degradation for non-critical failures
-- Timeout handling for database connections (5s)
-- Fallback responses when AI components fail
-
-## Deployment and Infrastructure
+## Getting Started
 
 ### Prerequisites
 
-- Node.js >= 20
-- npm >= 10
-- Python >= 3.11
-- Docker (for local development stack)
+- Node.js ≥ 20, npm ≥ 10
+- Python 3.12 (see `apps/backend/.python-version`)
+- Docker + Docker Compose
+- Running instances of: PostgreSQL, MongoDB, Redis, Qdrant (local Docker Compose or Atlas/managed)
 
-### Local Development
+### 1. Clone and install
 
 ```bash
-# Install dependencies
-npm install
-
-# Run all workspaces in dev mode
-npm run dev
-
-# Build all workspaces
-npm run build
+git clone https://github.com/MarcelRx/Lumenly.git
+cd Lumenly
+npm install            # root workspaces
+cd apps/backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Infrastructure Services
+### 2. Configure environment
 
-- PostgreSQL 15 (authentication, audit logs)
-- MongoDB 7 (domain models)
-- Redis 7 (caching, rate limiting, short-term memory)
-- Qdrant (vector storage)
+```bash
+cp .env.example .env
+# Fill in: database URLs, JWT secrets (32+ chars), Groq/Gemini API keys, Redis, Qdrant
+```
 
-### CI/CD
+See [Environment Variables](#environment-variables). Configuration validation **rejects placeholder secrets in production**.
 
-- GitHub Actions for CI (test, lint, security scan, build)
-- Tests run against PostgreSQL, MongoDB, Redis, and Qdrant services
-- Docker image build and test
-- TruffleHog for secret scanning
+### 3. Run the infrastructure
 
-### Configuration
+```bash
+docker compose up -d   # PostgreSQL, MongoDB, Redis, Qdrant
+```
 
-Environment variables required (see `apps/backend/.env` for example):
+### 4. Apply SQL migrations
 
-- `SECRET_KEY`, `JWT_SECRET` (and RS256 keys if using RS256)
-- `POSTGRES_URL`, `MONGODB_URL`, `REDIS_URL`, `QDRANT_URL`
-- `GROQ_API_KEY` or `GEMINI_API_KEY` (at least one required)
-- `OPENAI_API_KEY` or `COHERE_API_KEY` (for embeddings)
-- `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `VECTOR_DIMENSION`
-- Rate limiting configuration
+```bash
+cd apps/backend
+alembic upgrade head
+```
 
-## Engineering Challenges
+### 5. Start the backend
 
-### Current Limitations
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
-- No concrete agent implementations (only framework exists)
-- Knowledge base collection may not exist in all environments
-- No voice pipeline implementation
-- No wellness intelligence engine (sensor data integration)
-- No personalization engine (user blueprint computation)
-- Agent routing is keyword-based (not ML-based)
+Health endpoints: `GET /health/live`, `GET /health/ready`, `GET /health`
+Interactive API docs: `http://localhost:8000/docs`
 
-### Known Issues
+### 6. Start the frontend
 
-- 229 warnings in test suite (mostly deprecations and asyncio marks)
-- Some third-party library deprecations (PyPDF2, pythonjsonlogger, redis.setex)
-- JWT key length warnings in test fixtures (test-only, not production)
+```bash
+cd apps/frontend
+npm run dev            # Vite dev server
+```
 
-## What I Learned
+Or run everything with Turbo:
 
-From the Phase 12.5 implementation:
+```bash
+npx turbo run dev
+```
 
-- Redis-based rate limiting with sliding window algorithm is effective for distributed systems
-- Endpoint-specific limits provide better security than global limits
-- Fail-closed behavior is critical for security but requires proper monitoring
-- Tenant isolation must be enforced at multiple layers (application, database, vector store)
-- Tool registry with authorization provides a secure foundation for AI agent capabilities
+## Environment Variables
+
+Key variables from `.env.example` (full list in the file):
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection (users, auth) |
+| `MONGODB_URL` | MongoDB connection (domain collections) |
+| `REDIS_URL` | Redis connection (cache, rate limits, short-term memory) |
+| `QDRANT_URL` | Qdrant vector DB |
+| `JWT_SECRET_KEY` / JWT algorithm & key paths | HS256/RS256 signing |
+| `GROQ_API_KEY` | Primary LLM provider |
+| `GOOGLE_API_KEY` | Gemini fallback provider |
+| `RATE_LIMIT_FAIL_OPEN` | Keep `false` — fail-closed on Redis failure |
+| `ENVIRONMENT` | `development` / `staging` / `production` (affects validation strictness) |
+
+## API Overview
+
+Live OpenAPI spec: [`packages/shared/openapi/`](./packages/shared/openapi/). Narrative reference: [`docs/api_contracts.md`](./docs/api_contracts.md).
+
+| Prefix | Description |
+|---|---|
+| `/api/v1/auth/*` | Register, login, refresh-token rotation |
+| `/api/v1/users/*` | User management (RBAC-protected) |
+| `/api/v1/documents/*` | Knowledge Brain upload & management |
+| `/api/v1/journals/*` | Journal entries with mood scores |
+| `/api/v1/memory/*` | Short/long-term memory management |
+| `/api/v1/vectors/*` | Vector operations |
+| `/v1/ai/*` | AI inference endpoints |
+| `/v1/coaching/*` | Coaching sessions — **WebSocket** + HTTP |
+| `/v1/metrics` | Prometheus metrics |
+
+## Testing
+
+```bash
+# Backend
+cd apps/backend
+pytest                      # 832+ tests: auth, memory, RAG, rate limiting, tenant isolation, security
+
+# Frontend
+cd apps/frontend
+npm run build && npm run lint
+
+# Repo-wide test suites
+tests/integration  tests/e2e  tests/performance  tests/security  tests/contract
+```
+
+Test coverage highlights: multi-worker rate limiting, cross-tenant isolation (memory + vectors + tools), prompt-injection detection, WebSocket limits, memory integration.
+
+## Observability
+
+- **Metrics:** Prometheus scrape config in `prometheus.yml`; `/v1/metrics` endpoint; LLM usage metrics.
+- **Dashboards & alerts:** `monitoring/` (Grafana).
+- **Logging:** Structured JSON logs with request-ID correlation middleware.
+- **Runbooks:** `docs/runbooks/` — backups, service recovery (PG/Mongo/Redis/Qdrant), incident response, LLM provider failure, rollback.
+
+## Security & Privacy
+
+- **Tenant isolation everywhere** — every query, vector search, and tool execution is filtered by `user_id`; cross-tenant attempts are logged as `ComplianceEvent`s.
+- **JWT best practice** — short-lived access tokens, rotating refresh tokens, HS256 + RS256 support.
+- **AI security** — prompt-injection detection, input sanitization, output filtering (`AISecurityValidator`).
+- **Rate limiting** — distributed (Redis), sliding window, per-endpoint and WebSocket limits, fail-closed.
+- **Config validation** — rejects placeholder secrets in production; 32+ character secret keys.
+- **Planned:** GDPR right-to-be-forgotten endpoint, E2E encryption, on-device inference options, wearable integrations (Apple Health, Google Fit, Oura, Garmin).
+
+## Monetization Tiers
+
+| Tier | Price | Highlights |
+|---|---|---|
+| Free | $0 | Daily check-ins, mood tracking, basic text coach, 7-day history |
+| Plus | $9.99/mo | Unlimited chat, voice coaching, habit tracking, AI journaling, 30-day history |
+| Pro | $24.99/mo | Unlimited Knowledge Brain, Learning/Fitness/Career Coaches, advanced insights, 90-day history |
+| Elite | $49.99/mo | Multi-agent orchestration, long-term memory, burnout prediction, family accounts |
+| Enterprise | Custom | White-label, SSO, admin console, SLA, on-prem options |
 
 ## Roadmap
 
-See [docs/Roadmap.md](./docs/Roadmap.md) for the full development roadmap (phases 0–15).
+| Phase | Scope | Status |
+|---|---|---|
+| 0 — Foundation | Repo, CI/CD, API skeleton, Docker | ✅ Done |
+| 1 — MVP | Auth, text coach, memory engine, journals/goals/habits, rate limiting, RAG | ✅ Done (832+ tests passing) |
+| 2 — V1 | Voice companion, Wellness Score engine, subscriptions, richer web UI | 🚧 In progress |
+| 3 — V2 | 8 concrete agents + Fusion Engine, predictive intelligence, wearables | 📋 Planned |
+| 4 — Scale | Enterprise, family accounts, i18n, on-prem, advanced analytics | 📋 Planned |
 
-## AI-Assisted Development
-
-This repository uses AI-assisted development with governance documented in:
-
-- [docs/ai-development/agent-workflow.md](./docs/ai-development/agent-workflow.md)
-- [docs/ai-development/verification-policy.md](./docs/ai-development/verification-policy.md)
-
-## Project Status
-
-For historical reports and project status documentation, see [docs/project-status/](./docs/project-status/).
+Current gaps tracked in [`docs/architecture/system-architecture.md`](./docs/architecture/system-architecture.md#known-limitations) and [`docs/product/requirements.md`](./docs/product/requirements.md).
 
 ## Documentation
 
-For detailed architecture and implementation information, see:
+| Document | Purpose |
+|---|---|
+| [`docs/PRD.md`](./docs/PRD.md) | Production PRD — vision, requirements, release criteria |
+| [`docs/product/vision.md`](./docs/product/vision.md) · [`requirements.md`](./docs/product/requirements.md) | Product vision & requirement status |
+| [`docs/architecture/system-architecture.md`](./docs/architecture/system-architecture.md) | Components, flows, boundaries, limitations |
+| [`docs/architecture/ai-architecture.md`](./docs/architecture/ai-architecture.md) | AI stack, providers, RAG, memory |
+| [`docs/database_design.md`](./docs/database_design.md) | MongoDB schema & indexing |
+| [`docs/api_contracts.md`](./docs/api_contracts.md) | API specification |
+| [`docs/Roadmap.md`](./docs/Roadmap.md) | Master development roadmap (phases 0–15) |
+| [`docs/project-status/`](./docs/project-status/) | Historical phase reports |
+| [`docs/runbooks/`](./docs/runbooks/) | Operational procedures |
 
-- [docs/product/vision.md](./docs/product/vision.md) - Product vision and requirements
-- [docs/architecture/system-architecture.md](./docs/architecture/system-architecture.md) - System architecture
-- [docs/architecture/ai-architecture.md](./docs/architecture/ai-architecture.md) - AI architecture and components
-- [docs/architecture/agent-orchestration.md](./docs/architecture/agent-orchestration.md) - Agent responsibilities and orchestration
-- [docs/architecture/data-flow.md](./docs/architecture/data-flow.md) - Data architecture and flows
-- [docs/decisions/README.md](./docs/decisions/README.md) - Architecture Decision Records
-- [docs/engineering/testing-and-evaluation.md](./docs/engineering/testing-and-evaluation.md) - Testing and evaluation
-- [docs/engineering/observability.md](./docs/engineering/observability.md) - Observability and monitoring
-- [docs/engineering/error-handling.md](./docs/engineering/error-handling.md) - Error handling strategies
-- [docs/security/security-and-privacy.md](./docs/security/security-and-privacy.md) - Security and privacy
-- [docs/deployment/deployment-and-infrastructure.md](./docs/deployment/deployment-and-infrastructure.md) - Deployment and infrastructure
+## Contributing
 
-## License
+1. Branch from `main` using `feature/*`, `fix/*`, or `docs/*`.
+2. Read [`docs/README.md`](./docs/README.md) and the relevant architecture docs **before implementing features**.
+3. Follow the AI-development workflow ([`docs/ai-development/agent-workflow.md`](./docs/ai-development/agent-workflow.md)) and verification policy for AI-generated code.
+4. Add/keep tests green — backend changes require `pytest` passing; frontend requires `tsc -b && vite build` and ESLint.
+5. Open a pull request; maintainers review against [`docs/product/requirements.md`](./docs/product/requirements.md).
 
-Proprietary — Lumenly Engineering Team.
+---
+
+*Lumenly — built as a TurboRepo monorepo; containerized with Docker; monitored with Prometheus + Grafana; deployed via GitHub Actions.*
