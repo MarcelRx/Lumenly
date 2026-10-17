@@ -1,6 +1,8 @@
 // apps/frontend/src/pages/KnowledgeBase.tsx
 import React, { useEffect, useState } from "react";
 
+import { API_BASE_URL, API_TIMEOUT_MS } from "../api";
+
 // Types: Mirror backend schemas (Pydantic models defined in backend vectors.py)
 interface KnowledgeBaseDocument {
   id: string; // "userid::title" combined key
@@ -35,8 +37,9 @@ const KnowledgeBase: React.FC = () => {
 
     try {
       // Perform the authenticated GET request to the backend aggregation endpoint
-      const response = await fetch("http://localhost:8000/api/v1/vectors/documents", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/vectors/documents`, {
         method: "GET",
+        signal: AbortSignal.timeout(API_TIMEOUT_MS),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`, // Pass JWT for Depends(get_current_user)
