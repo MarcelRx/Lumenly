@@ -1,6 +1,7 @@
 import axios from "axios";
 import { Bot, LogOut, Send, Sparkles, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { API_BASE_URL, API_TIMEOUT_MS } from "./api";
 
 interface Message {
   role: "user" | "assistant";
@@ -46,11 +47,12 @@ export default function Chat({ token, onLogout }: ChatProps) {
     try {
       // Call the backend RAG endpoint
       const response = await axios.post(
-        "http://localhost:8000/v1/ai/ask",
+        `${API_BASE_URL}/v1/ai/ask`,
         {
           query: userMessage,
         },
         {
+          timeout: API_TIMEOUT_MS,
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
