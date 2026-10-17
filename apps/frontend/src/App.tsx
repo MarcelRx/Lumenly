@@ -1,13 +1,17 @@
 import { useState } from "react";
 // 1. Install react-router-dom: `npm install react-router-dom`
-import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import Chat from "./Chat";
 import Login from "./Login";
 // 2. Import the component created in Step 3 Task A
 import KnowledgeBase from "./pages/KnowledgeBase";
 
 // 3. Centralized layout component with navigation for protected routes
-const ProtectedLayout: React.FC<{ token: string, onLogout: () => void }> = ({ token, onLogout, children }) => {
+const ProtectedLayout: React.FC<{
+  token: string;
+  onLogout: () => void;
+  children: React.ReactNode;
+}> = ({ onLogout, children }) => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
@@ -35,9 +39,7 @@ const ProtectedLayout: React.FC<{ token: string, onLogout: () => void }> = ({ to
           </button>
         </nav>
       </header>
-      <main className="flex-grow">
-        {children}
-      </main>
+      <main className="flex-grow">{children}</main>
     </div>
   );
 };
@@ -79,7 +81,7 @@ export default function App() {
               <ProtectedLayout token={token} onLogout={handleLogout}>
                 <Routes>
                   {/* Default chat routing */}
-                  <Route path="/" element={<Chat token={token} />} />
+                  <Route path="/" element={<Chat token={token} onLogout={handleLogout} />} />
 
                   {/* Task E Routing: Dashboard page */}
                   <Route path="/kb" element={<KnowledgeBase />} />

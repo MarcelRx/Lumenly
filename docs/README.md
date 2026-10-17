@@ -60,15 +60,21 @@ The following documents have been superseded by the reorganized structure above 
 
 ### Legacy Documentation (Retained for Reference)
 
-The following legacy documents are retained as authoritative references until fully migrated:
+The following legacy documents are retained as authoritative references:
 
-- [database_design.md](./database_design.md) - Detailed MongoDB schema and indexing strategy (retained for reference)
-- [api_contracts.md](./api_contracts.md) - OpenAPI-style API specification (authoritative until migrated)
-- [Roadmap.md](./Roadmap.md) - Master development roadmap (authoritative product roadmap)
-- [project_structure.md](./project_structure.md) - Project structure (updated to reflect actual implementation)
-- [PRD.md](./PRD.md) - Product Requirements Document (authoritative product requirements)
+- [database_design.md](./database_design.md) - Detailed MongoDB schema and indexing strategy (authoritative MongoDB schema)
+- [api_contracts.md](./api_contracts.md) - OpenAPI-style API specification (see `packages/shared/openapi.yaml` for live OpenAPI spec)
+- [Roadmap.md](./Roadmap.md) - Master development roadmap (authoritative product roadmap, phases 0-15)
+- [project_structure.md](./project_structure.md) - Project structure (updated to reflect actual web application implementation)
+- [PRD.md](./PRD.md) - Product Requirements Document (authored product requirements, see `docs/product/requirements.md` for current requirements)
 
-These documents contain detailed information that has not yet been fully integrated into the new structure. They should be consulted for their specific domains until migration is complete.
+**Status Notes:**
+
+- `database_design.md` - Authoritative MongoDB schema; may be migrated to `docs/data/` in future
+- `api_contracts.md` - Retained for reference; live OpenAPI spec in `packages/shared/openapi.yaml`
+- `Roadmap.md` - Authoritative product roadmap with all phases 0-15
+- `project_structure.md` - Updated to reflect actual implementation (React 19 web app, not mobile)
+- `PRD.md` - Authored requirements; current requirements in `docs/product/requirements.md`
 
 ## Quick Navigation
 

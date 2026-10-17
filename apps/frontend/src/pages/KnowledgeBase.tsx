@@ -1,5 +1,5 @@
 // apps/frontend/src/pages/KnowledgeBase.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 // Types: Mirror backend schemas (Pydantic models defined in backend vectors.py)
 interface KnowledgeBaseDocument {
@@ -19,58 +19,63 @@ const KnowledgeBase: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetching Logic on Component Mount
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
-
   const fetchDocuments = async () => {
     setIsLoading(true);
     setError(null);
 
     // 4. FIX: Use the actual storage key from App.tsx/Login.tsx
     // (This was previously looking for 'lumenly_auth_token')
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem("access_token");
 
     if (!token) {
-      setError('You must be logged in to manage the knowledge base.');
+      setError("You must be logged in to manage the knowledge base.");
       setIsLoading(false);
       return;
     }
 
     try {
       // Perform the authenticated GET request to the backend aggregation endpoint
-      const response = await fetch('http://localhost:8000/api/v1/vectors/documents', {
-        method: 'GET',
+      const response = await fetch("http://localhost:8000/api/v1/vectors/documents", {
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // Pass JWT for Depends(get_current_user)
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // Pass JWT for Depends(get_current_user)
         },
       });
 
       const data: DocumentListResponse = await response.json();
 
-      if (response.ok && data.status === 'success') {
+      if (response.ok && data.status === "success") {
         setDocuments(data.documents);
-        console.log(`KnowledgeBase UI: Retrieved ${data.documents.length} unique documents for user.`);
+        console.log(
+          `KnowledgeBase UI: Retrieved ${data.documents.length} unique documents for user.`,
+        );
       } else {
         // Handle explicit backend errors (e.g., status 500/503 from FastAPI)
-        throw new Error(data.status || 'Failed to retrieve documents.');
+        throw new Error(data.status || "Failed to retrieve documents.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
-      console.error('KnowledgeBase UI Fetch Error:', err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      console.error("KnowledgeBase UI Fetch Error:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Fetching Logic on Component Mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDocuments();
+  }, []);
 
   // -------------------------------------------------------------
   // Step 3, Task D/E: Action Handlers (Mocked for now)
   // -------------------------------------------------------------
   const handleDelete = (docId: string, docTitle: string) => {
     const combinedKey = docId; // "userid::title"
-    alert(`MOCK: DELETE requested for Document Title: "${docTitle}". (Internal Key: ${combinedKey})`);
+    alert(
+      `MOCK: DELETE requested for Document Title: "${docTitle}". (Internal Key: ${combinedKey})`,
+    );
     // After confirmation, we would run fetch(/api/vectors/delete/{combinedKey}, {method: 'DELETE'})
     // and re-call fetchDocuments() on success.
   };
@@ -90,7 +95,7 @@ const KnowledgeBase: React.FC = () => {
           onClick={fetchDocuments}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition duration-150 shadow-sm font-medium"
         >
-          {isLoading ? 'Refreshing...' : '🔄 Refresh List'}
+          {isLoading ? "Refreshing..." : "🔄 Refresh List"}
         </button>
       </div>
 
@@ -109,7 +114,9 @@ const KnowledgeBase: React.FC = () => {
         // Empty State
         <div className="bg-gray-100/50 border border-gray-200 p-16 rounded-lg text-center text-gray-500 font-medium">
           🗂️ No documents found in your knowledge base.
-          <p className="mt-2 text-sm text-gray-400">Add documents through the main interface to see them here.</p>
+          <p className="mt-2 text-sm text-gray-400">
+            Add documents through the main interface to see them here.
+          </p>
         </div>
       ) : (
         // Table Rendering State
@@ -117,13 +124,22 @@ const KnowledgeBase: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-100">
               <tr>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                >
                   Document Title
                 </th>
-                <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                >
                   Total Vector Chunks
                 </th>
-                <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                >
                   Actions
                 </th>
               </tr>
@@ -156,7 +172,7 @@ const KnowledgeBase: React.FC = () => {
             </tbody>
           </table>
           <div className="bg-gray-100 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 font-medium">
-             Total unique documents sitting in Qdrant for user: {documents.length}
+            Total unique documents sitting in Qdrant for user: {documents.length}
           </div>
         </div>
       )}

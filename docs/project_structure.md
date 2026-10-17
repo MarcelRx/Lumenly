@@ -35,12 +35,7 @@ Lumenly/                          # Git root
 ├─ infra/                        # IaC (Docker Compose, Helm, Terraform stubs)
 ├─ apps/
 │   ├─ frontend/                 # React 19 + TypeScript + Vite web application
-│   └─ backend/                  # FastAPI service
-├─ ai/                           # AI-related modules (agents, knowledge brain, memory)
-│   ├─ memory_engine/            # Vector store wrapper & Qdrant utils
-│   ├─ knowledge_brain/          # LLM prompting, Groq / Gemini clients, RAG
-│   ├─ agent_system/             # Orchestration layer for multi-agent flows
-│   └─ voice/                    # ElevenLabs integration
+│   └─ backend/                  # FastAPI service with AI components
 ├─ tests/                        # Integration & end-to-end test suites
 ├─ scripts/                      # Helper scripts (data seeding, MongoDB initialization)
 ├─ shared/                       # Language-agnostic contracts (OpenAPI spec, JSON schemas)

@@ -26,9 +26,6 @@ export default function Chat({ token, onLogout }: ChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Defaulting to the user_id you used in your successful curl test
-  const userId = "mohsen_123";
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -47,19 +44,18 @@ export default function Chat({ token, onLogout }: ChatProps) {
     setIsLoading(true);
 
     try {
-      // Hitting your new multi-agent backend endpoint
+      // Call the backend RAG endpoint
       const response = await axios.post(
-        "http://localhost:8000/api/chat",
+        "http://localhost:8000/v1/ai/ask",
         {
-          user_id: userId,
-          message: userMessage,
+          query: userMessage,
         },
         {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = response.data;
@@ -67,9 +63,9 @@ export default function Chat({ token, onLogout }: ChatProps) {
         ...prev,
         {
           role: "assistant",
-          content: data.response,
-          agentUsed: data.agent_used,
-          memoriesRetrieved: data.memories_retrieved,
+          content: data.answer,
+          agentUsed: "ai_coach",
+          memoriesRetrieved: data.retrieval_stats?.total_context_items || 0,
         },
       ]);
     } catch (error) {
@@ -131,7 +127,11 @@ export default function Chat({ token, onLogout }: ChatProps) {
                   message.role === "user" ? "bg-emerald-600" : "bg-indigo-600"
                 }`}
               >
-                {message.role === "user" ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+                {message.role === "user" ? (
+                  <User className="w-5 h-5" />
+                ) : (
+                  <Bot className="w-5 h-5" />
+                )}
               </div>
               <div
                 className={`max-w-[80%] rounded-2xl p-4 text-sm leading-relaxed ${

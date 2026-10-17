@@ -416,6 +416,10 @@ This repository uses AI-assisted development with governance documented in:
 - [docs/ai-development/agent-workflow.md](./docs/ai-development/agent-workflow.md)
 - [docs/ai-development/verification-policy.md](./docs/ai-development/verification-policy.md)
 
+## Project Status
+
+For historical reports and project status documentation, see [docs/project-status/](./docs/project-status/).
+
 ## Documentation
 
 For detailed architecture and implementation information, see:

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Lumenly is a TurboRepo monorepo containing a FastAPI backend service and a React Native frontend application. The backend is an AI-native life operating system that integrates multiple AI components including memory management, knowledge retrieval, and agent orchestration.
+Lumenly is a TurboRepo monorepo containing a FastAPI backend service and a React 19 + TypeScript + Vite web application. The backend is an AI-native life operating system that integrates multiple AI components including memory management, knowledge retrieval, and agent orchestration.
 
 ## Application Boundaries
 
@@ -341,7 +341,7 @@ Lumenly is a TurboRepo monorepo containing a FastAPI backend service and a React
 
 ```
 ┌─────────────┐
-│   Frontend  │ (React Native / Expo)
+│   Frontend  │ (React 19 + TypeScript + Vite Web App)
 └──────┬──────┘
        │ HTTP/WebSocket
        ▼
