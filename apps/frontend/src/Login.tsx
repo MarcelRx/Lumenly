@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { API_BASE_URL, API_TIMEOUT_MS } from "./api";
 
 interface LoginProps {
   onLoginSuccess?: (token: string) => void;
@@ -31,9 +32,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       params.set("password", password);
 
       const response = await axios.post(
-        "http://localhost:8000/api/v1/auth/login",
+        `${API_BASE_URL}/api/v1/auth/login`,
         params,
         {
+          timeout: API_TIMEOUT_MS,
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
         },
       );
