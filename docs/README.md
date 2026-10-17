@@ -6,43 +6,46 @@ Central index for all architectural and product documents. Other agents should r
 
 Lumenly documentation is organized into specialized directories for clarity and maintainability:
 
-### Product Documentation (`product/`)
+### Product Documentation (product/)
 
 - [vision.md](./product/vision.md) - Product vision, goals, and use cases
 - [requirements.md](./product/requirements.md) - Functional and non-functional requirements with implementation status
 
-### Architecture Documentation (`architecture/`)
+### Architecture Documentation (architecture/)
 
 - [system-architecture.md](./architecture/system-architecture.md) - System architecture, components, and deployment topology
 - [ai-architecture.md](./architecture/ai-architecture.md) - AI components, model providers, and AI-specific architecture
 - [agent-orchestration.md](./architecture/agent-orchestration.md) - Agent framework, types, and orchestration
 - [data-flow.md](./architecture/data-flow.md) - Data architecture, storage systems, and data flows
 
-### Decision Records (`decisions/`)
+### Decision Records (decisions/)
 
 - [README.md](./decisions/README.md) - Architecture Decision Record (ADR) process and governance
 - [ADR-0001-template.md](./decisions/ADR-0001-template.md) - Template for creating new ADRs
+- [ADR-0001-multi-database-architecture.md](./decisions/ADR-0001-multi-database-architecture.md) - Multi-database architecture decision
+- [ADR-0002-redis-based-rate-limiting.md](./decisions/ADR-0002-redis-based-rate-limiting.md) - Redis-based rate limiting decision
+- [ADR-0003-keyword-based-agent-routing.md](./decisions/ADR-0003-keyword-based-agent-routing.md) - Keyword-based agent routing decision
 
-### Engineering Documentation (`engineering/`)
+### Engineering Documentation (engineering/)
 
 - [testing-and-evaluation.md](./engineering/testing-and-evaluation.md) - Testing strategy and evaluation framework
 - [observability.md](./engineering/observability.md) - Metrics, logging, and monitoring
 - [error-handling.md](./engineering/error-handling.md) - Error handling strategies and patterns
 
-### Security Documentation (`security/`)
+### Security Documentation (security/)
 
 - [security-and-privacy.md](./security/security-and-privacy.md) - Security practices, tenant isolation, and privacy controls
 
-### Deployment Documentation (`deployment/`)
+### Deployment Documentation (deployment/)
 
 - [deployment-and-infrastructure.md](./deployment/deployment-and-infrastructure.md) - Deployment architecture and infrastructure
 
-### AI Development Documentation (`ai-development/`)
+### AI Development Documentation (ai-development/)
 
 - [agent-workflow.md](./ai-development/agent-workflow.md) - AI agent development workflow for AI-assisted development
 - [verification-policy.md](./ai-development/verification-policy.md) - Verification policy for AI-generated code
 
-### Operational Documentation (`runbooks/`)
+### Operational Documentation (runbooks/)
 
 - Collection of operational runbooks for:
   - Backup and restoration procedures
@@ -51,34 +54,43 @@ Lumenly documentation is organized into specialized directories for clarity and 
   - LLM provider failure handling
   - Deployment rollback procedures
 
+### Project Status (project-status/)
+
+- [project-status/README.md](./project-status/README.md) - Index of status and historical reports
+- [CURRENT_PROJECT_STATUS.md](./project-status/CURRENT_PROJECT_STATUS.md) - Authoritative current-state document (implementation status, current phase, next milestones)
+- [LUMENLY_COMPLETE_PROJECT_REPORT.md](./project-status/LUMENLY_COMPLETE_PROJECT_REPORT.md) - Final executive report (product idea, capability matrix, verified status, plan)
+
 ### Legacy Documentation (Superseded)
 
 The following documents have been superseded by the reorganized structure above and have been removed:
 
-- ~~system_architecture.md~~ - Removed; content migrated to `architecture/system-architecture.md`
-- ~~ai_system_design.md~~ - Removed; content migrated to `architecture/ai-architecture.md`
+- system_architecture.md - Removed; content migrated to architecture/system-architecture.md
+- ai_system_design.md - Removed; content migrated to architecture/ai-architecture.md
+- PROJECT_MAP.md (root) - Retained with a superseded banner; original vision and tech-stack content preserved, stale status claims corrected
 
-### Legacy Documentation (Retained for Reference)
-
-The following legacy documents are retained as authoritative references:
+### Legacy Documentation (Retained as Authoritative References)
 
 - [database_design.md](./database_design.md) - Detailed MongoDB schema and indexing strategy (authoritative MongoDB schema)
-- [api_contracts.md](./api_contracts.md) - OpenAPI-style API specification (see `packages/shared/openapi.yaml` for live OpenAPI spec)
+- [api_contracts.md](./api_contracts.md) - OpenAPI-style API specification (see packages/shared/openapi.yaml for live OpenAPI spec)
 - [Roadmap.md](./Roadmap.md) - Master development roadmap (authoritative product roadmap, phases 0-15)
 - [project_structure.md](./project_structure.md) - Project structure (updated to reflect actual web application implementation)
-- [PRD.md](./PRD.md) - Product Requirements Document (authored product requirements, see `docs/product/requirements.md` for current requirements)
+- [PRD.md](./PRD.md) - Product Requirements Document (authored product requirements; see product/requirements.md for current requirements)
+- [CI_CD_PIPELINE_DESIGN.md](./CI_CD_PIPELINE_DESIGN.md) - CI/CD pipeline design
+- [project_idea.text](./project_idea.text) - Original authored product idea (historical origin of the vision; see product/vision.md for current form)
 
 **Status Notes:**
 
-- `database_design.md` - Authoritative MongoDB schema; may be migrated to `docs/data/` in future
-- `api_contracts.md` - Retained for reference; live OpenAPI spec in `packages/shared/openapi.yaml`
-- `Roadmap.md` - Authoritative product roadmap with all phases 0-15
-- `project_structure.md` - Updated to reflect actual implementation (React 19 web app, not mobile)
-- `PRD.md` - Authored requirements; current requirements in `docs/product/requirements.md`
+- database_design.md - Authoritative MongoDB schema; may be migrated to docs/data/ in future
+- api_contracts.md - Retained for reference; live OpenAPI spec in packages/shared/openapi.yaml
+- Roadmap.md - Authoritative product roadmap with all phases 0-15. Note: some phase texts (e.g. Phase 10/11/15 references to "Expo build", "CDN for the mobile API", mobile app foundation) are authored-roadmap legacy text from before the web-application decision. Lumenly is a web application only; treat those mobile references as superseded historical roadmap content, not current specification.
+- project_structure.md - Updated to reflect actual implementation (React 19 web app, not mobile)
+- PRD.md - Authored requirements; current requirements in docs/product/requirements.md
 
 ## Quick Navigation
 
 **For Product Understanding:** Start with [product/vision.md](./product/vision.md)
+
+**For Current Status:** Read [project-status/CURRENT_PROJECT_STATUS.md](./project-status/CURRENT_PROJECT_STATUS.md)
 
 **For Architecture Understanding:** Start with [architecture/system-architecture.md](./architecture/system-architecture.md)
 
